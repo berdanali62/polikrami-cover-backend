@@ -1,0 +1,597 @@
+// datasource & generator
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Enums
+enum ProjectStatus {
+  active
+  archived
+  deleted
+}
+
+enum ShareLinkType {
+  view
+  comment
+  edit
+}
+
+enum CommentStatus {
+  open
+  resolved
+}
+
+enum OrderStatus {
+  pending
+  paid
+  failed
+  canceled
+  refunded
+}
+
+enum BillingInterval {
+  month
+  year
+}
+
+enum SubscriptionStatus {
+  trialing
+  active
+  past_due
+  canceled
+}
+
+// Core models
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String?
+  avatarUrl String?
+  emailVerifiedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  projects                Project[]
+  roles                   UserRole[]
+  tokens                  RefreshToken[]
+  verifyTokens            EmailVerificationToken[]
+  resetTokens             PasswordResetToken[]
+  assets                  Asset[]
+  comments                Comment[]
+  profile                 UserProfile?
+  subscriptions           Subscription[]
+  orders                  Order[]
+  invoices                Invoice[]
+  notifications           Notification[]
+  organizationsOwned      Organization[]           @relation("OrganizationOwner")
+  organizationMemberships OrganizationMember[]
+  events                  Event[]
+  storageStat             StorageStat?
+  projectMemberships      ProjectMember[]
+  drafts                  Draft[]
+}
+
+model Project {
+  id        String        @id @default(uuid())
+  ownerId   String
+  orgId     String?
+  title     String
+  status    ProjectStatus @default(active)
+  meta      Json?
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  owner        User            @relation(fields: [ownerId], references: [id])
+  organization Organization?   @relation(fields: [orgId], references: [id])
+  versions     DesignVersion[]
+  comments     Comment[]
+  shares       ShareLink[]
+  invitations  Invitation[]
+  events       Event[]
+  members      ProjectMember[]
+
+  @@index([ownerId, status, createdAt])
+}
+
+model DesignVersion {
+  id        String   @id @default(uuid())
+  projectId String
+  version   Int
+  label     String?
+  createdBy String?
+  createdAt DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id])
+  pages   Page[]
+
+  @@unique([projectId, version])
+}
+
+model Page {
+  id              String  @id @default(uuid())
+  designVersionId String
+  name            String
+  pageIndex       Int
+  width           Int
+  height          Int
+  background      String?
+
+  designVersion DesignVersion @relation(fields: [designVersionId], references: [id])
+  layers        Layer[]
+
+  @@unique([designVersionId, pageIndex])
+}
+
+model Layer {
+  id       String  @id @default(uuid())
+  pageId   String
+  type     String
+  zIndex   Int
+  x        Float
+  y        Float
+  width    Float
+  height   Float
+  rotation Float   @default(0)
+  props    Json?
+  isLocked Boolean @default(false)
+  isHidden Boolean @default(false)
+
+  page     Page      @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  comments Comment[]
+
+  @@index([pageId, zIndex])
+}
+
+model Template {
+  id          String   @id @default(uuid())
+  slug        String   @unique
+  title       String
+  description String?
+  authorId    String?
+  cover       Json?
+  createdAt   DateTime @default(now())
+  isPublished Boolean  @default(false)
+
+  versions   TemplateVersion[]
+  categories TemplateCategory[]
+  tags       TemplateTag[]
+  events     Event[]
+}
+
+model TemplateVersion {
+  id                   String   @id @default(uuid())
+  templateId           String
+  version              Int
+  baseProjectVersionId String?
+  changelog            Json?
+  createdAt            DateTime @default(now())
+
+  template Template @relation(fields: [templateId], references: [id])
+}
+
+model Category {
+  id        Int                @id @default(autoincrement())
+  name      String
+  slug      String             @unique
+  templates TemplateCategory[]
+}
+
+model Tag {
+  id        Int           @id @default(autoincrement())
+  name      String
+  slug      String        @unique
+  templates TemplateTag[]
+}
+
+// Access & roles
+model Role {
+  id    Int        @id @default(autoincrement())
+  name  String     @unique
+  users UserRole[]
+}
+
+model UserRole {
+  userId String
+  roleId Int
+  user   User   @relation(fields: [userId], references: [id])
+  role   Role   @relation(fields: [roleId], references: [id])
+
+  @@id([userId, roleId])
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid())
+  userId    String
+  tokenHash String
+  userAgent String?
+  ip        String?
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([userId, revokedAt, createdAt])
+}
+
+model EmailVerificationToken {
+  id        String    @id @default(uuid())
+  userId    String
+  tokenHash String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid())
+  userId    String
+  tokenHash String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+// Content & taxonomy relations
+model TemplateCategory {
+  templateId String
+  categoryId Int
+
+  template Template @relation(fields: [templateId], references: [id])
+  category Category @relation(fields: [categoryId], references: [id])
+
+  @@id([templateId, categoryId])
+}
+
+model TemplateTag {
+  templateId String
+  tagId      Int
+
+  template Template @relation(fields: [templateId], references: [id])
+  tag      Tag      @relation(fields: [tagId], references: [id])
+
+  @@id([templateId, tagId])
+}
+
+model Asset {
+  id        String   @id @default(uuid())
+  ownerId   String?
+  kind      String
+  path      String   // relative path under uploads dir
+  mimeType  String
+  bytes     Int
+  meta      Json?
+  createdAt DateTime @default(now())
+
+  owner User? @relation(fields: [ownerId], references: [id])
+
+  @@index([ownerId])
+}
+
+model Comment {
+  id            String        @id @default(uuid())
+  projectId     String
+  authorId      String
+  body          String
+  targetLayerId String?
+  status        CommentStatus @default(open)
+  createdAt     DateTime      @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  author  User    @relation(fields: [authorId], references: [id])
+  layer   Layer?  @relation(fields: [targetLayerId], references: [id])
+
+  @@index([projectId])
+  @@index([authorId])
+}
+
+model ShareLink {
+  id                String        @id @default(uuid())
+  projectId         String
+  type              ShareLinkType @default(view)
+  token             String        @unique
+  passwordProtected Boolean       @default(false)
+  passwordHash      String?
+  expiresAt         DateTime?
+  allowDownload     Boolean       @default(false)
+  createdAt         DateTime      @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+}
+
+// User profile & preferences
+model UserProfile {
+  userId      String  @id
+  phone       String?
+  company     String?
+  address1    String?
+  address2    String?
+  city        String?
+  state       String?
+  postalCode  String?
+  country     String?
+  preferences Json?
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+// Organizations (multi-tenant)
+model Organization {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  ownerId   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  owner       User                 @relation("OrganizationOwner", fields: [ownerId], references: [id])
+  members     OrganizationMember[]
+  projects    Project[]
+  invitations Invitation[]
+  storageStat StorageStat?
+}
+
+model OrganizationMember {
+  organizationId String
+  userId         String
+  role           String   @default("member")
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  user         User         @relation(fields: [userId], references: [id])
+
+  @@id([organizationId, userId])
+}
+
+model Invitation {
+  id             String    @id @default(uuid())
+  organizationId String?
+  projectId      String?
+  email          String
+  role           String?
+  tokenHash      String
+  expiresAt      DateTime
+  acceptedAt     DateTime?
+  createdAt      DateTime  @default(now())
+
+  organization Organization? @relation(fields: [organizationId], references: [id])
+  project      Project?      @relation(fields: [projectId], references: [id])
+
+  @@index([email])
+  @@index([organizationId])
+  @@index([projectId])
+}
+
+// Project-level collaboration
+model ProjectMember {
+  projectId String
+  userId    String
+  role      String   @default("editor")
+  createdAt DateTime @default(now())
+
+  project   Project @relation(fields: [projectId], references: [id])
+  user      User    @relation(fields: [userId], references: [id])
+
+  @@id([projectId, userId])
+}
+
+// Billing: plans, subscriptions, orders, payments, invoices
+model Plan {
+  id         String          @id @default(uuid())
+  code       String          @unique
+  name       String
+  priceCents Int
+  currency   String          @default("USD")
+  interval   BillingInterval
+  features   Json?
+  createdAt  DateTime        @default(now())
+
+  subscriptions Subscription[]
+}
+
+model Subscription {
+  id                 String             @id @default(uuid())
+  userId             String
+  planId             String
+  status             SubscriptionStatus @default(trialing)
+  currentPeriodStart DateTime?
+  currentPeriodEnd   DateTime?
+  cancelAtPeriodEnd  Boolean            @default(false)
+  providerCustomerId String?
+  providerSubId      String?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+  plan Plan @relation(fields: [planId], references: [id])
+
+  @@index([userId])
+  @@index([planId])
+}
+
+model Order {
+  id         String      @id @default(uuid())
+  userId     String
+  status     OrderStatus @default(pending)
+  totalCents Int
+  currency   String      @default("TRY")
+  createdAt  DateTime    @default(now())
+
+  user     User        @relation(fields: [userId], references: [id])
+  items    OrderItem[]
+  payments Payment[]
+  invoice  Invoice?
+
+  @@index([userId])
+  @@index([userId, createdAt])
+}
+
+model OrderItem {
+  id             String  @id @default(uuid())
+  orderId        String
+  type           String
+  referenceId    String?
+  quantity       Int     @default(1)
+  unitPriceCents Int
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+}
+
+model Payment {
+  id                String   @id @default(uuid())
+  orderId           String
+  provider          String
+  providerPaymentId String?
+  status            String
+  amountCents       Int
+  receiptUrl        String?
+  createdAt         DateTime @default(now())
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+}
+
+model Invoice {
+  id                String    @id @default(uuid())
+  orderId           String?   @unique
+  userId            String
+  number            String    @unique
+  amountCents       Int
+  currency          String    @default("USD")
+  dueDate           DateTime?
+  paidAt            DateTime?
+  providerInvoiceId String?
+  data              Json?
+  createdAt         DateTime  @default(now())
+
+  order Order? @relation(fields: [orderId], references: [id])
+  user  User   @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+// Notifications & Emails
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  type      String
+  payload   Json?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt])
+}
+
+model EmailQueue {
+  id          String    @id @default(uuid())
+  to          String
+  subject     String
+  template    String?
+  payload     Json?
+  status      String    @default("queued")
+  scheduledAt DateTime?
+  sentAt      DateTime?
+  error       String?
+  createdAt   DateTime  @default(now())
+
+  @@index([status, scheduledAt])
+  @@index([createdAt])
+}
+
+// Draft flow for multi-step customization
+model Draft {
+  id            String        @id @default(uuid())
+  userId        String
+  method        String                      // upload | ai | artist
+  step          Int           @default(1)
+  data          Json?
+  messageCardId String?
+  shipping      Json?
+  committedAt   DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  user        User        @relation(fields: [userId], references: [id])
+  messageCard MessageCard? @relation(fields: [messageCardId], references: [id])
+
+  @@index([userId])
+  @@index([userId, createdAt])
+  @@index([committedAt])
+  @@index([messageCardId])
+}
+
+model MessageCard {
+  id          String   @id @default(uuid())
+  title       String
+  thumbnailUrl String?
+  priceCents  Int      @default(0)
+  isPublished Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  drafts Draft[]
+
+  @@index([isPublished, createdAt])
+}
+
+// Analytics & usage
+model Event {
+  id         String   @id @default(uuid())
+  userId     String?
+  projectId  String?
+  templateId String?
+  type       String
+  payload    Json?
+  createdAt  DateTime @default(now())
+
+  user     User?     @relation(fields: [userId], references: [id])
+  project  Project?  @relation(fields: [projectId], references: [id])
+  template Template? @relation(fields: [templateId], references: [id])
+
+  @@index([type, createdAt])
+  @@index([userId, createdAt])
+}
+generator erd {
+  provider = "prisma-erd-generator"
+  output   = "./ERD.svg" // DİKKAT: ./prisma/ERD.svg değil
+  // theme = "neutral"    // opsiyonel: "forest" | "dark" | "neutral"
+  // format = "svg"       // varsayılan zaten svg
+}
+// Storage (usage/quota)
+model StorageStat {
+  id          String   @id @default(uuid())
+  ownerUserId String?
+  ownerOrgId  String?
+  usedBytes   Int      @default(0)
+  updatedAt   DateTime @updatedAt
+
+  ownerUser User?         @relation(fields: [ownerUserId], references: [id])
+  ownerOrg  Organization? @relation(fields: [ownerOrgId], references: [id])
+
+  @@unique([ownerUserId])
+  @@unique([ownerOrgId])
+}
