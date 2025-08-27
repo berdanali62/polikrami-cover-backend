@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { DraftService } from '../service/draft.service';
-import { presignUploadSchema } from '../dto/draft.dto';
+import { presignUploadSchema, assignDesignerSchema } from '../dto/draft.dto';
 import path from 'path';
 import fs from 'fs/promises';
 
@@ -64,6 +64,13 @@ export async function commitDraftController(req: Request, res: Response) {
   const id = req.params.id as string;
   const order = await service.commit(id, userId);
   res.status(201).json(order);
+}
+
+export async function assignDesignerController(req: Request, res: Response) {
+  const id = req.params.id as string;
+  const { designerId } = assignDesignerSchema.parse(req.body);
+  const draft = await service.assignDesigner(id, designerId, req.user!.id);
+  res.status(200).json(draft);
 }
 
 

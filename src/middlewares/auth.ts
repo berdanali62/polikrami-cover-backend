@@ -1,6 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
 import { verifyToken, type AccessTokenPayload } from '../shared/helpers/jwt';
-import { prisma } from '../config/database';
 
 export async function requireAuth(req: Request, res: Response, next: NextFunction) {
   const bearer = req.headers.authorization?.startsWith('Bearer ')
@@ -12,11 +11,21 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
   const payload = verifyToken<AccessTokenPayload>(token, 'access');
   if (!payload) return res.status(401).json({ message: 'Unauthorized' });
 
-  // Role'u DB'den doğrula (JWT'ye güvenme)
-  const dbUser = await prisma.user.findUnique({ where: { id: payload.userId }, include: { roles: { include: { role: true } } } });
-  if (!dbUser) return res.status(401).json({ message: 'Unauthorized' });
-  const roleName = dbUser.roles?.[0]?.role?.name;
-  req.user = { id: payload.userId, role: roleName };
+  // Use role from JWT (no DB query needed)
+  req.user = { id: payload.userId, role: payload.role };
   next();
+}
+
+export function requireRole(role: string) {
+  return async function roleCheck(req: Request, res: Response, next: NextFunction) {
+    // Compose with requireAuth properly to avoid double responses
+    requireAuth(req, res, (err?: unknown) => {
+      if (err) return next(err as any);
+      if (!req.user?.role || req.user.role !== role) {
+        return res.status(403).json({ message: 'Forbidden' });
+      }
+      next();
+    });
+  };
 }
 

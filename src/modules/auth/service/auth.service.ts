@@ -16,6 +16,18 @@ export class AuthService {
     }
     const password = await hashPassword(params.password);
     const user = await createUser({ email: params.email, password, name: params.name, role: params.role });
+    // Generate email verification token
+    try {
+      const code = randomUUID();
+      const expiresAt = new Date(Date.now() + 1000 * 60 * env.EMAIL_VERIFY_CODE_EXPIRE_MINUTES);
+      const tokenHash = await hashToken(code);
+      await prisma.emailVerificationToken.create({ data: { userId: user.id, tokenHash, expiresAt } });
+      const verifyLink = `${env.APP_URL}/verify-email?token=${encodeURIComponent(code)}`;
+      await sendEmail({ to: user.email, subject: 'Verify your email', text: `Click to verify: ${verifyLink}` });
+    } catch (error) {
+      const { logger } = await import('../../../utils/logger');
+      logger.error({ error, email: params.email }, 'Failed to send email verification');
+    }
     return { id: user.id, email: user.email, name: user.name };
   }
 
@@ -25,15 +37,46 @@ export class AuthService {
     const ok = await verifyPassword(user.password, params.password);
     if (!ok) throw unauthorized('Invalid credentials');
 
-    const access = signAccessToken({ userId: user.id });
+    // Get user role for JWT
+    const userWithRole = await prisma.user.findUnique({
+      where: { id: user.id },
+      include: { roles: { include: { role: true } } }
+    });
+    const roleName = userWithRole?.roles?.[0]?.role?.name;
+
+    const access = signAccessToken({ userId: user.id, role: roleName });
     const tokenId = randomUUID();
     const refresh = signRefreshToken({ userId: user.id, tid: tokenId });
 
-    // store refresh hash (JWT kendisi hashlenebilir veya HMAC uygulanabilir; basitlik için direkt hash’li değil tokenId kullanıyoruz)
+    // store refresh hash - tokenId should be hashed for security
     const expiresAt = new Date(Date.now() + ms(env.REFRESH_EXPIRES_IN));
-    await createRefreshToken({ id: tokenId, userId: user.id, tokenHash: tokenId, userAgent: params.ua, ip: params.ip, expiresAt });
+    const tokenHash = await hashToken(tokenId);
+    await createRefreshToken({ id: tokenId, userId: user.id, tokenHash, userAgent: params.ua, ip: params.ip, expiresAt });
 
     return { access, refresh };
+  }
+
+  async resendVerification(email: string) {
+    const user = await findUserByEmail(email);
+    if (!user) return; // gizlilik
+    if (user.emailVerifiedAt) return;
+    const code = randomUUID();
+    const expiresAt = new Date(Date.now() + 1000 * 60 * env.EMAIL_VERIFY_CODE_EXPIRE_MINUTES);
+    const tokenHash = await hashToken(code);
+    await prisma.emailVerificationToken.create({ data: { userId: user.id, tokenHash, expiresAt } });
+    const verifyLink = `${env.APP_URL}/verify-email?token=${encodeURIComponent(code)}`;
+    await sendEmail({ to: user.email, subject: 'Verify your email', text: `Click to verify: ${verifyLink}` });
+  }
+
+  async verifyEmail(token: string) {
+    const rec = await prisma.emailVerificationToken.findFirst({ where: { usedAt: null, expiresAt: { gt: new Date() } }, orderBy: { createdAt: 'desc' } });
+    if (!rec) throw badRequest('Invalid token');
+    const ok = await verifyTokenHash(rec.tokenHash, token);
+    if (!ok) throw badRequest('Invalid token');
+    await prisma.$transaction([
+      prisma.user.update({ where: { id: rec.userId }, data: { emailVerifiedAt: new Date() } }),
+      prisma.emailVerificationToken.update({ where: { id: rec.id }, data: { usedAt: new Date() } }),
+    ]);
   }
 
   async refresh(params: { userId: string; refreshTid: string; ua?: string; ip?: string }) {
@@ -44,24 +87,46 @@ export class AuthService {
       await revokeAllRefreshTokensByUser(params.userId);
       throw unauthorized('Refresh reuse detected');
     }
+    // Verify token hash for additional security
+    const isValidHash = await verifyTokenHash(latest.tokenHash, params.refreshTid);
+    if (!isValidHash) {
+      await revokeAllRefreshTokensByUser(params.userId);
+      throw unauthorized('Invalid refresh token hash');
+    }
     await revokeRefreshToken(latest.id);
-    const access = signAccessToken({ userId: params.userId });
+    
+    // Get user role for new JWT
+    const userWithRole = await prisma.user.findUnique({
+      where: { id: params.userId },
+      include: { roles: { include: { role: true } } }
+    });
+    const roleName = userWithRole?.roles?.[0]?.role?.name;
+    
+    const access = signAccessToken({ userId: params.userId, role: roleName });
     const newTid = randomUUID();
     const refresh = signRefreshToken({ userId: params.userId, tid: newTid });
     const expiresAt = new Date(Date.now() + ms(env.REFRESH_EXPIRES_IN));
-    await createRefreshToken({ id: newTid, userId: params.userId, tokenHash: newTid, userAgent: params.ua, ip: params.ip, expiresAt });
+    const newTokenHash = await hashToken(newTid);
+    await createRefreshToken({ id: newTid, userId: params.userId, tokenHash: newTokenHash, userAgent: params.ua, ip: params.ip, expiresAt });
     return { access, refresh };
   }
 
   async forgotPassword(email: string) {
     const user = await findUserByEmail(email);
     if (!user) return; // gizlilik
-    // 4 haneli kod üret
-    const code = String(Math.floor(1000 + Math.random() * 9000));
-    const expiresAt = new Date(Date.now() + 1000 * 60 * 10); // 10 dk
-    const tokenHash = await hashToken(code);
-    await prisma.passwordResetToken.create({ data: { userId: user.id, tokenHash, expiresAt } });
-    await sendEmail({ to: user.email, subject: 'Your reset code', text: `Reset code: ${code}` });
+    
+    try {
+      // 4 haneli kod üret
+      const code = String(Math.floor(1000 + Math.random() * 9000));
+      const expiresAt = new Date(Date.now() + 1000 * 60 * env.PASSWORD_RESET_CODE_EXPIRE_MINUTES);
+      const tokenHash = await hashToken(code);
+      await prisma.passwordResetToken.create({ data: { userId: user.id, tokenHash, expiresAt } });
+      await sendEmail({ to: user.email, subject: 'Your reset code', text: `Reset code: ${code}` });
+    } catch (error) {
+      const { logger } = await import('../../../utils/logger');
+      logger.error({ error, email: user.email }, 'Failed to send password reset email');
+      // Don't throw error to prevent information disclosure
+    }
   }
 
   async verifyResetCode(email: string, code: string): Promise<boolean> {

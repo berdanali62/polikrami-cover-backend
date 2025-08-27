@@ -1,0 +1,300 @@
+{
+  "info": {
+    "name": "CoverPolikrami API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_postman_id": "3d6d5f7f-9b2b-4a1b-a9b6-collection"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// CSRF helper: for non-GET requests (except refresh), fetch /csrf and set X-CSRF-Token",
+          "const method = pm.request.method;",
+          "const urlStr = pm.request.url.toString();",
+          "if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') { return; }",
+          "if (urlStr.endsWith('/api/auth/refresh')) { return; }",
+          "const baseUrl = pm.environment.get('baseUrl') || pm.collectionVariables.get('baseUrl');",
+          "pm.sendRequest({ url: baseUrl + '/csrf', method: 'GET' }, (err, res) => {",
+          "  if (err || !res) { return; }",
+          "  const setCookie = res.headers.get('set-cookie') || '';",
+          "  const m = setCookie.match(/csrf=([^;]+)/);",
+          "  if (m && m[1]) { pm.collectionVariables.set('csrf', m[1]); }",
+          "});"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000" },
+    { "key": "csrf", "value": "" },
+    { "key": "email", "value": "user@example.com" },
+    { "key": "password", "value": "Passw0rd!" },
+    { "key": "name", "value": "Test User" },
+    { "key": "projectId", "value": "00000000-0000-0000-0000-000000000000" },
+    { "key": "userId", "value": "00000000-0000-0000-0000-000000000000" },
+    { "key": "draftId", "value": "00000000-0000-0000-0000-000000000000" },
+    { "key": "messageCardId", "value": "00000000-0000-0000-0000-000000000000" },
+    { "key": "orderId", "value": "00000000-0000-0000-0000-000000000000" }
+  ],
+  "item": [
+    {
+      "name": "Health & Utils",
+      "item": [
+        {
+          "name": "Health",
+          "request": { "method": "GET", "url": "{{baseUrl}}/health" }
+        },
+        {
+          "name": "Get CSRF",
+          "request": { "method": "GET", "url": "{{baseUrl}}/csrf" }
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-CSRF-Token", "value": "{{csrf}}" }
+            ],
+            "url": "{{baseUrl}}/api/auth/register",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\",\n  \"name\": \"{{name}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-CSRF-Token", "value": "{{csrf}}" }
+            ],
+            "url": "{{baseUrl}}/api/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\",\n  \"remember\": true\n}"
+            }
+          }
+        },
+        {
+          "name": "Refresh (no CSRF)",
+          "request": { "method": "POST", "url": "{{baseUrl}}/api/auth/refresh" }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "X-CSRF-Token", "value": "{{csrf}}" } ],
+            "url": "{{baseUrl}}/api/auth/logout"
+          }
+        },
+        {
+          "name": "Forgot Password",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" }, { "key": "X-CSRF-Token", "value": "{{csrf}}" } ],
+            "url": "{{baseUrl}}/api/auth/forgot-password",
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{email}}\"\n}" }
+          }
+        },
+        {
+          "name": "Verify Reset Code",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" }, { "key": "X-CSRF-Token", "value": "{{csrf}}" } ],
+            "url": "{{baseUrl}}/api/auth/verify-reset-code",
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{email}}\",\n  \"code\": \"1234\"\n}" }
+          }
+        },
+        {
+          "name": "Reset Password",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" }, { "key": "X-CSRF-Token", "value": "{{csrf}}" } ],
+            "url": "{{baseUrl}}/api/auth/reset-password",
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{email}}\",\n  \"code\": \"1234\",\n  \"password\": \"NewPassw0rd!\"\n}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users (auth)",
+      "item": [
+        { "name": "Me", "request": { "method": "GET", "url": "{{baseUrl}}/api/users/me" } },
+        {
+          "name": "Update Profile",
+          "request": {
+            "method": "PUT",
+            "header": [ { "key": "Content-Type", "value": "application/json" }, { "key": "X-CSRF-Token", "value": "{{csrf}}" } ],
+            "url": "{{baseUrl}}/api/users/me",
+            "body": { "mode": "raw", "raw": "{\n  \"phone\": \"+90 555 555 55 55\",\n  \"city\": \"Istanbul\"\n}" }
+          }
+        },
+        {
+          "name": "Change Password",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" }, { "key": "X-CSRF-Token", "value": "{{csrf}}" } ],
+            "url": "{{baseUrl}}/api/users/me/change-password",
+            "body": { "mode": "raw", "raw": "{\n  \"currentPassword\": \"{{password}}\",\n  \"newPassword\": \"NewPassw0rd!\"\n}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Projects (auth)",
+      "item": [
+        { "name": "List", "request": { "method": "GET", "url": "{{baseUrl}}/api/projects" } },
+        {
+          "name": "Create",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" }, { "key": "X-CSRF-Token", "value": "{{csrf}}" } ],
+            "url": "{{baseUrl}}/api/projects",
+            "body": { "mode": "raw", "raw": "{\n  \"title\": \"My Project\"\n}" }
+          }
+        },
+        { "name": "Get", "request": { "method": "GET", "url": "{{baseUrl}}/api/projects/{{projectId}}" } },
+        {
+          "name": "Update",
+          "request": {
+            "method": "PUT",
+            "header": [ { "key": "Content-Type", "value": "application/json" }, { "key": "X-CSRF-Token", "value": "{{csrf}}" } ],
+            "url": "{{baseUrl}}/api/projects/{{projectId}}",
+            "body": { "mode": "raw", "raw": "{\n  \"title\": \"Renamed Project\"\n}" }
+          }
+        },
+        { "name": "Delete", "request": { "method": "DELETE", "header": [ { "key": "X-CSRF-Token", "value": "{{csrf}}" } ], "url": "{{baseUrl}}/api/projects/{{projectId}}" } },
+        { "name": "List Members", "request": { "method": "GET", "url": "{{baseUrl}}/api/projects/{{projectId}}/members" } },
+        {
+          "name": "Add Member",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" }, { "key": "X-CSRF-Token", "value": "{{csrf}}" } ],
+            "url": "{{baseUrl}}/api/projects/{{projectId}}/members",
+            "body": { "mode": "raw", "raw": "{\n  \"userId\": \"{{userId}}\",\n  \"role\": \"editor\"\n}" }
+          }
+        },
+        { "name": "Remove Member", "request": { "method": "DELETE", "header": [ { "key": "X-CSRF-Token", "value": "{{csrf}}" } ], "url": "{{baseUrl}}/api/projects/{{projectId}}/members/{{userId}}" } }
+      ]
+    },
+    {
+      "name": "Contact",
+      "item": [
+        {
+          "name": "Send Contact",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" }, { "key": "X-CSRF-Token", "value": "{{csrf}}" } ],
+            "url": "{{baseUrl}}/api/contact",
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Ad Soyad\",\n  \"email\": \"kisi@example.com\",\n  \"phone\": \"+90 5xx xxx xx xx\",\n  \"message\": \"Merhaba...\"\n}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Drafts (auth)",
+      "item": [
+        {
+          "name": "Create Draft",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" }, { "key": "X-CSRF-Token", "value": "{{csrf}}" } ],
+            "url": "{{baseUrl}}/api/drafts",
+            "body": { "mode": "raw", "raw": "{\n  \"method\": \"upload\"\n}" }
+          }
+        },
+        { "name": "List My Drafts", "request": { "method": "GET", "url": "{{baseUrl}}/api/drafts" } },
+        { "name": "Get Draft", "request": { "method": "GET", "url": "{{baseUrl}}/api/drafts/{{draftId}}" } },
+        {
+          "name": "Update Draft",
+          "request": {
+            "method": "PUT",
+            "header": [ { "key": "Content-Type", "value": "application/json" }, { "key": "X-CSRF-Token", "value": "{{csrf}}" } ],
+            "url": "{{baseUrl}}/api/drafts/{{draftId}}",
+            "body": { "mode": "raw", "raw": "{\n  \"step\": 3,\n  \"data\": { \"note\": \"example\" },\n  \"assignedDesignerId\": \"{{userId}}\"\n}" }
+          }
+        },
+        {
+          "name": "Presign Upload",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" }, { "key": "X-CSRF-Token", "value": "{{csrf}}" } ],
+            "url": "{{baseUrl}}/api/drafts/{{draftId}}/presign",
+            "body": { "mode": "raw", "raw": "{\n  \"contentType\": \"image/png\"\n}" }
+          }
+        },
+        {
+          "name": "Upload File",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "X-CSRF-Token", "value": "{{csrf}}" } ],
+            "url": "{{baseUrl}}/api/drafts/{{draftId}}/upload",
+            "body": {
+              "mode": "formdata",
+              "formdata": [ { "key": "file", "type": "file", "src": [ ] } ]
+            }
+          }
+        },
+        {
+          "name": "Set Message Card",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" }, { "key": "X-CSRF-Token", "value": "{{csrf}}" } ],
+            "url": "{{baseUrl}}/api/drafts/{{draftId}}/message-card",
+            "body": { "mode": "raw", "raw": "{\n  \"messageCardId\": \"{{messageCardId}}\",\n  \"to\": \"Ali\",\n  \"signature\": \"Veli\",\n  \"content\": \"Mutlu y1llar\"\n}" }
+          }
+        },
+        {
+          "name": "Set Shipping",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" }, { "key": "X-CSRF-Token", "value": "{{csrf}}" } ],
+            "url": "{{baseUrl}}/api/drafts/{{draftId}}/shipping",
+            "body": { "mode": "raw", "raw": "{\n  \"shipping\": {\n    \"senderName\": \"Gonderen\",\n    \"senderPhone\": \"+90 555 111 11 11\",\n    \"receiverName\": \"Alici\",\n    \"receiverPhone\": \"+90 555 222 22 22\",\n    \"city\": \"Istanbul\",\n    \"district\": \"Kadikoy\",\n    \"address\": \"Bahariye Cad. No:1\",\n    \"company\": \"\"\n  }\n}" }
+          }
+        },
+        { "name": "Commit Draft", "request": { "method": "POST", "header": [ { "key": "X-CSRF-Token", "value": "{{csrf}}" } ], "url": "{{baseUrl}}/api/drafts/{{draftId}}/commit" } }
+      ]
+    },
+    {
+      "name": "Designers (auth)",
+      "item": [
+        { "name": "List Designers", "request": { "method": "GET", "url": "{{baseUrl}}/api/designers" } }
+      ]
+    },
+    {
+      "name": "Message Cards",
+      "item": [
+        { "name": "List", "request": { "method": "GET", "url": "{{baseUrl}}/api/message-cards" } }
+      ]
+    },
+    {
+      "name": "Orders (auth)",
+      "item": [
+        { "name": "List My Orders", "request": { "method": "GET", "url": "{{baseUrl}}/api/orders" } },
+        { "name": "Get Order", "request": { "method": "GET", "url": "{{baseUrl}}/api/orders/{{orderId}}" } },
+        {
+          "name": "Update Order Status (test)",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" }, { "key": "X-CSRF-Token", "value": "{{csrf}}" } ],
+            "url": "{{baseUrl}}/api/orders/{{orderId}}/status",
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"paid\"\n}" }
+          }
+        },
+        { "name": "Cancel Order", "request": { "method": "POST", "header": [ { "key": "X-CSRF-Token", "value": "{{csrf}}" } ], "url": "{{baseUrl}}/api/orders/{{orderId}}/cancel" } }
+      ]
+    }
+  ]
+}
+

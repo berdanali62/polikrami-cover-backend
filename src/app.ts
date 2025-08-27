@@ -12,7 +12,17 @@ import userRoutes from './modules/users/routes';
 import projectRoutes from './modules/projects/routes';
 import draftRoutes from './modules/drafts/routes';
 import messageCardRoutes from './modules/message-cards/routes';
+import designerRoutes from './modules/designers/routes';
 import orderRoutes from './modules/orders/routes';
+import contactRoutes from './modules/contact/routes';
+import paymentRoutes from './modules/payments/routes';
+import organizationRoutes from './modules/organizations/routes';
+import templateRoutes from './modules/templates/routes';
+import categoryRoutes from './modules/categories/routes';
+import commentRoutes from './modules/comments/routes';
+import searchRoutes from './modules/search/routes';
+import notificationRoutes from './modules/notifications/routes';
+import assetRoutes from './modules/assets/routes';
 import path from 'path';
 import fs from 'fs';
 
@@ -39,7 +49,9 @@ app.use(cookieParser());
 app.use((req, res, next) => {
   if (!req.cookies?.csrf) {
     const token = crypto.randomBytes(16).toString('hex');
-    res.cookie('csrf', token, { httpOnly: false, sameSite: 'lax', secure: env.COOKIE_SECURE, domain: env.COOKIE_DOMAIN });
+    const base = { httpOnly: false, sameSite: 'lax' as const, secure: env.COOKIE_SECURE };
+    const opts = env.COOKIE_DOMAIN ? { ...base, domain: env.COOKIE_DOMAIN } : base;
+    res.cookie('csrf', token, opts);
   }
   next();
 });
@@ -50,7 +62,7 @@ app.get('/csrf', (_req, res) => {
 // CSRF double-submit doğrulaması (state-changing)
 app.use((req, res, next) => {
   if (req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS') return next();
-  const bypass = new Set(['/api/auth/refresh']);
+  const bypass = new Set(['/api/auth/refresh', '/api/payments/callback']);
   if (bypass.has(req.path)) return next();
   const csrfCookie = req.cookies?.csrf;
   const csrfHeader = req.headers['x-csrf-token'];
@@ -70,6 +82,16 @@ app.use('/api/projects', projectRoutes);
 app.use('/api/drafts', draftRoutes);
 app.use('/api/message-cards', messageCardRoutes);
 app.use('/api/orders', orderRoutes);
+app.use('/api/contact', rateLimitMiddleware, contactRoutes); // Rate limit contact form
+app.use('/api/designers', designerRoutes);
+app.use('/api/payments', paymentRoutes);
+app.use('/api/organizations', organizationRoutes);
+app.use('/api/templates', templateRoutes);
+app.use('/api/categories', categoryRoutes);
+app.use('/api/comments', commentRoutes);
+app.use('/api/search', searchRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/assets', assetRoutes);
 
 // Serve uploaded files read-only from upload dir (outside of API namespaces)
 const uploadAbs = path.isAbsolute(env.UPLOAD_DIR) ? env.UPLOAD_DIR : path.join(process.cwd(), env.UPLOAD_DIR);

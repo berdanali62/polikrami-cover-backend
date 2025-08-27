@@ -10,7 +10,9 @@ const router = Router();
 
 router.get('/me', requireAuth, asyncHandler(meController));
 router.put('/me', requireAuth, validateBody(updateProfileSchema), asyncHandler(updateProfileController));
+router.put('/profile', requireAuth, validateBody(updateProfileSchema), asyncHandler(updateProfileController));
 router.post('/me/change-password', requireAuth, validateBody(changePasswordSchema), asyncHandler(changePasswordController));
+router.put('/password', requireAuth, validateBody(changePasswordSchema), asyncHandler(changePasswordController));
 
 export default router;
 

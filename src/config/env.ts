@@ -12,7 +12,7 @@ if (!E.DATABASE_URL && E.PGHOST) {
   const user = E.PGUSER ?? 'postgres';
   const pass = E.PGPASSWORD ? encodeURIComponent(E.PGPASSWORD) : '';
   const host = E.PGHOST ?? 'localhost';
-  const port = E.PGPORT ?? '5432';
+  const port = E.PGPORT ?? '6262';
   const db = E.PGDATABASE ?? 'postgres';
   E.DATABASE_URL = `postgresql://${user}:${pass}@${host}:${port}/${db}?schema=public`;
 }
@@ -45,6 +45,7 @@ const schema = z.object({
   SMTP_USER: z.string().optional().default(''),
   SMTP_PASS: z.string().optional().default(''),
   EMAIL_FROM: z.string().email().default('no-reply@example.com'),
+  CONTACT_TO: z.string().email().or(z.literal('')).default(''),
   // Boş bırakılabilir; doluysa geçerli e-posta olmalı -> basitleştirip boş stringe izin veriyoruz
   EMAIL_REDIRECT_TO: z.string().optional().default(''),
   SMTP_TLS_INSECURE: z.string().transform((v) => v === 'true').default('false'),
@@ -55,6 +56,18 @@ const schema = z.object({
     .string()
     .default('image/png,image/jpeg,image/webp,application/pdf')
     .transform((s) => s.split(',').map((x) => x.trim()).filter(Boolean)),
+  // Business configuration
+  SHIPPING_COST_CENTS: z.coerce.number().default(3000), // 30 TL default shipping cost
+  PASSWORD_RESET_CODE_EXPIRE_MINUTES: z.coerce.number().default(10),
+  EMAIL_VERIFY_CODE_EXPIRE_MINUTES: z.coerce.number().default(60),
+  // Email queue cleanup configuration
+  EMAIL_QUEUE_CLEANUP_DAYS: z.coerce.number().default(30),
+  EMAIL_QUEUE_FAILED_CLEANUP_HOURS: z.coerce.number().default(24),
+  // Payment provider configuration
+  IYZICO_API_KEY: z.string().optional().default(''),
+  IYZICO_SECRET_KEY: z.string().optional().default(''),
+  IYZICO_BASE_URL: z.string().default('https://sandbox-api.iyzipay.com'), // sandbox or https://api.iyzipay.com
+  PAYMENT_PROVIDER: z.enum(['mock', 'iyzico']).default('mock'),
 });
 
 export const env = schema.parse(process.env);

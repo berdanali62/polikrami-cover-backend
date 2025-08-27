@@ -15,6 +15,10 @@ export const updateDraftSchema = z.object({
 	messageCardId: z.string().uuid({ message: 'Geçerli bir mesaj kartı ID (UUID) giriniz.' }).optional(),
 });
 
+export const assignDesignerSchema = z.object({
+	designerId: z.string().uuid({ message: 'Geçerli bir sanatçı ID (UUID) giriniz.' }),
+});
+
 export const setMessageCardSchema = z.object({
 	messageCardId: z.string().uuid({ message: 'Geçerli bir mesaj kartı ID (UUID) giriniz.' }),
 	to: z.string().min(1, { message: 'Alıcı adı boş olamaz.' }).optional(),

@@ -11,6 +11,11 @@ if (!fs.existsSync(uploadDirAbs)) fs.mkdirSync(uploadDirAbs, { recursive: true }
 const storage = multer.diskStorage({
   destination: (req: Request, _file: MulterFile, cb: (error: Error | null, destination: string) => void) => {
     const draftId = String(req.params['id']);
+    // Validate UUID format to prevent path traversal
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(draftId)) {
+      return cb(new Error('Invalid draft ID format'), '');
+    }
     const dest = path.join(uploadDirAbs, 'drafts', draftId);
     fs.mkdirSync(dest, { recursive: true });
     cb(null, dest);
@@ -48,19 +53,21 @@ const baseMulter = multer({
 export const uploadMiddleware = baseMulter;
 
 // After multer writes the file, attach the relative key for response
-export function attachRelativePath(req: Request & { fileRelPath?: string; file?: MulterFile; files?: MulterFile[] }, _res: Response, next: NextFunction) {
-  const files = (req.files as MulterFile[]) || (req.file ? [req.file as MulterFile] : []);
+export function attachRelativePath(req: Request, _res: Response, next: NextFunction) {
+  const anyReq = req as unknown as { files?: MulterFile[] | Record<string, MulterFile[]>; file?: MulterFile; fileRelPath?: string };
+  const files = (anyReq.files as MulterFile[]) || (anyReq.file ? [anyReq.file as MulterFile] : []);
   if (files && files[0]) {
     const rel = path.relative(uploadDirAbs, files[0].path).replace(/\\/g, '/');
-    req.fileRelPath = rel;
+    anyReq.fileRelPath = rel;
   }
   next();
 }
 
 // Basic magic-byte validation to mitigate spoofed MIME from plugins
-export async function validateMagicBytes(req: Request & { file?: MulterFile; files?: MulterFile[] }, res: Response, next: NextFunction) {
+export async function validateMagicBytes(req: Request, res: Response, next: NextFunction) {
   try {
-    const file = (req.file as MulterFile) || ((req.files as MulterFile[])?.[0] as MulterFile);
+    const anyReq = req as unknown as { file?: MulterFile; files?: MulterFile[] | Record<string, MulterFile[]> };
+    const file = (anyReq.file as MulterFile) || ((anyReq.files as MulterFile[])?.[0] as MulterFile);
     if (!file) return next();
     const fd = fs.openSync(file.path, 'r');
     const buffer = Buffer.alloc(12);

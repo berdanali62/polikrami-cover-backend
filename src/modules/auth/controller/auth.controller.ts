@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { AuthService } from '../service/auth.service';
 import { env } from '../../../config/env';
+import { resendVerificationSchema, verifyEmailSchema } from '../dto/verify-email.dto';
 import { forgotPasswordSchema, resetPasswordSchema, verifyResetCodeSchema } from '../dto/forgot-password.dto';
 import { unauthorized, badRequest, conflict } from '../../../shared/errors/ApiError';
 
@@ -65,6 +66,18 @@ export async function verifyResetCodeController(req: Request, res: Response) {
   const { email, code } = verifyResetCodeSchema.parse(req.body);
   const ok = await service.verifyResetCode(email, code);
   res.status(ok ? 200 : 400).json({ ok });
+}
+
+export async function resendVerificationController(req: Request, res: Response) {
+  const { email } = resendVerificationSchema.parse(req.body);
+  await service.resendVerification(email);
+  res.status(200).json({ ok: true });
+}
+
+export async function verifyEmailController(req: Request, res: Response) {
+  const { token } = verifyEmailSchema.parse(req.body);
+  await service.verifyEmail(token);
+  res.status(200).json({ ok: true });
 }
 
 function setAuthCookies(res: Response, access: string, refresh: string, remember = false) {

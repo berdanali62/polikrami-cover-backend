@@ -7,6 +7,11 @@ export interface SendEmailParams {
   subject: string;
   html?: string;
   text?: string;
+  /**
+   * If true, send to the exact 'to' address ignoring EMAIL_REDIRECT_TO.
+   * Useful for user-facing confirmations in development.
+   */
+  bypassRedirect?: boolean;
 }
 
 const transporter = nodemailer.createTransport({
@@ -27,7 +32,7 @@ export async function sendEmail(params: SendEmailParams): Promise<void> {
       status: 'queued',
     },
   });
-  const to = env.EMAIL_REDIRECT_TO || params.to;
+  const to = params.bypassRedirect ? params.to : (env.EMAIL_REDIRECT_TO || params.to);
   try {
     const info = await transporter.sendMail({
       from: env.EMAIL_FROM,
@@ -49,8 +54,12 @@ export async function sendEmail(params: SendEmailParams): Promise<void> {
         where: { id: queued.id },
         data: { status: 'failed', error: String(err?.message ?? err) },
       });
-    } catch {}
-    console.error('[MAIL] failed', err);
+    } catch (dbError) {
+      const { logger } = await import('../../utils/logger');
+      logger.error({ error: dbError }, 'Failed to update email queue status');
+    }
+    const { logger } = await import('../../utils/logger');
+    logger.error({ error: err, emailTo: params.to }, 'Email sending failed');
     throw err;
   }
 }

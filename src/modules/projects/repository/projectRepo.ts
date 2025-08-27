@@ -1,6 +1,5 @@
 import { prisma } from '../../../config/database';
-import { ProjectStatus } from '@prisma/client';
-import type { Prisma } from '@prisma/client';
+import { ProjectStatus, Prisma } from '@prisma/client';
 
 export async function listProjectsForUser(userId: string) {
   return prisma.project.findMany({
@@ -21,7 +20,14 @@ export async function getProject(id: string) {
 }
 
 export async function updateProject(id: string, data: { title?: string; status?: ProjectStatus; meta?: Prisma.InputJsonValue | null }) {
-  return prisma.project.update({ where: { id }, data });
+  return prisma.project.update({
+    where: { id },
+    data: {
+      title: data.title,
+      status: data.status,
+      meta: data.meta === null ? Prisma.DbNull : data.meta,
+    },
+  });
 }
 
 export async function softDeleteProject(id: string) {

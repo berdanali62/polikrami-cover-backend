@@ -4,7 +4,7 @@ import { asyncHandler } from '../../shared/helpers/asyncHandler';
 import { validateBody, validateParams } from '../../middlewares/validation';
 import { z } from 'zod';
 import { createDraftSchema, updateDraftSchema, setMessageCardSchema, setShippingSchema, presignUploadSchema } from './dto/draft.dto';
-import { createDraftController, getMyDraftsController, getDraftController, updateDraftController, uploadPresignController, setMessageCardController, setShippingController, commitDraftController, uploadFileController } from './controller/draft.controller';
+import { createDraftController, getMyDraftsController, getDraftController, updateDraftController, uploadPresignController, setMessageCardController, setShippingController, commitDraftController, uploadFileController, assignDesignerController } from './controller/draft.controller';
 import { uploadMiddleware, attachRelativePath, validateMagicBytes } from '../../shared/upload/multer';
 
 const router = Router();
@@ -27,6 +27,7 @@ router.post(
 router.post('/:id/message-card', requireAuth, validateParams(idParam), validateBody(setMessageCardSchema), asyncHandler(setMessageCardController));
 router.post('/:id/shipping', requireAuth, validateParams(idParam), validateBody(setShippingSchema), asyncHandler(setShippingController));
 router.post('/:id/commit', requireAuth, validateParams(idParam), asyncHandler(commitDraftController));
+router.post('/:id/assign-designer', requireAuth, validateParams(idParam), asyncHandler(assignDesignerController));
 
 export default router;
 
