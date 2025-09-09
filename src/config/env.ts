@@ -20,6 +20,8 @@ if (!E.DATABASE_URL && E.PGHOST) {
 if (!E.UPLOAD_MAX_SIZE_MB && E.STORAGE_MAX_SIZE_MB) E.UPLOAD_MAX_SIZE_MB = E.STORAGE_MAX_SIZE_MB;
 if (!E.UPLOAD_ALLOWED_MIME && E.STORAGE_ALLOWED_MIME) E.UPLOAD_ALLOWED_MIME = E.STORAGE_ALLOWED_MIME;
 if (!E.UPLOAD_DIR && E.STORAGE_DIR) E.UPLOAD_DIR = E.STORAGE_DIR;
+// New public/private upload roots with backward-compat
+if (!E.UPLOAD_PUBLIC_DIR && E.UPLOAD_DIR) E.UPLOAD_PUBLIC_DIR = E.UPLOAD_DIR;
 
 const schema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -49,8 +51,20 @@ const schema = z.object({
   // Boş bırakılabilir; doluysa geçerli e-posta olmalı -> basitleştirip boş stringe izin veriyoruz
   EMAIL_REDIRECT_TO: z.string().optional().default(''),
   SMTP_TLS_INSECURE: z.string().transform((v) => v === 'true').default('false'),
+  SMTP_REQUIRE_TLS: z.string().transform((v) => v === 'true').default('false'),
+  SMTP_IGNORE_TLS: z.string().transform((v) => v === 'true').default('false'),
+  SMTP_NAME: z.string().optional().default(''),
+  SMTP_LOGGER: z.string().transform((v) => v === 'true').default('false'),
+  SMTP_DEBUG: z.string().transform((v) => v === 'true').default('false'),
+  SMTP_CONNECTION_TIMEOUT_MS: z.coerce.number().default(10000),
+  SMTP_GREETING_TIMEOUT_MS: z.coerce.number().default(10000),
+  SMTP_SOCKET_TIMEOUT_MS: z.coerce.number().default(10000),
+  SMTP_AUTH_METHOD: z.string().optional().default(''),
+  SMTP_TLS_MIN_VERSION: z.enum(['', 'TLSv1', 'TLSv1.1', 'TLSv1.2', 'TLSv1.3']).default(''),
   // Local upload config
   UPLOAD_DIR: z.string().default('./uploads'),
+  UPLOAD_PUBLIC_DIR: z.string().default('./uploads'),
+  UPLOAD_PRIVATE_DIR: z.string().default('./uploads-private'),
   UPLOAD_MAX_SIZE_MB: z.coerce.number().default(100),
   UPLOAD_ALLOWED_MIME: z
     .string()
@@ -68,6 +82,36 @@ const schema = z.object({
   IYZICO_SECRET_KEY: z.string().optional().default(''),
   IYZICO_BASE_URL: z.string().default('https://sandbox-api.iyzipay.com'), // sandbox or https://api.iyzipay.com
   PAYMENT_PROVIDER: z.enum(['mock', 'iyzico']).default('mock'),
+  // AI & Queue configuration
+  STABILITY_API_KEY: z.string().optional().default(''),
+  REDIS_URL: z.string().optional().default(''),
+  WATERMARK_TEXT: z.string().optional().default('polikrami-preview'),
+  WATERMARK_OPACITY: z.coerce.number().min(0).max(1).default(0.2),
+  WATERMARK_POSITION: z.enum(['top-left', 'top-right', 'bottom-left', 'bottom-right']).default('bottom-right'),
+  WATERMARK_LOGO_PATH: z.string().optional().default(''),
+  // Shipment tracking configuration
+  SHIPMENT_PROVIDER: z.enum(['mock']).default('mock'),
+  SHIPMENT_WEBHOOK_SECRET: z.string().optional().default(''),
+  SHIPMENT_SYNC_INTERVAL_MS: z.coerce.number().default(300000),
+  SHIPMENT_DEFAULT_CARRIER: z.string().optional().default('mock'),
+  SHIPMENT_CARRIERS: z
+    .string()
+    .default('mock:Mock Carrier,yurtici:Yurtiçi Kargo,aras:Aras Kargo,ptt:PTT Kargo')
+    .transform((s) =>
+      s
+        .split(',')
+        .map((x) => x.trim())
+        .filter((x) => x.length > 0)
+        .map((pair) => {
+          const parts = pair.split(':');
+          const rawCode = parts[0] ?? '';
+          const rawName = parts.slice(1).join(':');
+          const code = rawCode.trim();
+          const name = (rawName || rawCode).trim();
+          return code ? { code, name } : null;
+        })
+        .filter((v): v is { code: string; name: string } => v !== null)
+    ),
 });
 
 export const env = schema.parse(process.env);

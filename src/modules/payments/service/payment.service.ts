@@ -468,38 +468,33 @@ export class PaymentService {
         providerData: params.providerData
       });
 
-      // Update payment status
-      await prisma.$transaction(async (tx) => {
-        await tx.payment.update({
-          where: { id: payment.id },
+      // Idempotent update: only transition if still pending
+      const result = await prisma.$transaction(async (tx) => {
+        const updated = await tx.payment.updateMany({
+          where: { id: payment.id, status: 'pending' },
           data: {
             status: callbackResponse.status,
-            receiptUrl: callbackResponse.transactionId ? 
-              `${env.APP_URL}/receipts/${callbackResponse.transactionId}` : null
+            receiptUrl: callbackResponse.transactionId ? `${env.APP_URL}/receipts/${callbackResponse.transactionId}` : null
           }
         });
 
-        // Update order status if payment successful
-        if (callbackResponse.status === 'success') {
-          await tx.order.update({
-            where: { id: params.orderId },
-            data: { status: 'paid' }
-          });
-        } else if (callbackResponse.status === 'failed') {
-          await tx.order.update({
-            where: { id: params.orderId },
-            data: { status: 'failed' }
-          });
+        if (updated.count === 0) {
+          return { processed: false } as const;
         }
+
+        // Update order status if payment transitioned
+        if (callbackResponse.status === 'success') {
+          await tx.order.updateMany({ where: { id: params.orderId, status: 'pending' }, data: { status: 'paid' } });
+        } else if (callbackResponse.status === 'failed') {
+          await tx.order.updateMany({ where: { id: params.orderId, status: 'pending' }, data: { status: 'failed' } });
+        }
+
+        return { processed: true } as const;
       });
 
-      logger.info({
-        orderId: params.orderId,
-        paymentId: payment.id,
-        status: callbackResponse.status
-      }, 'Payment callback processed');
+      logger.info({ orderId: params.orderId, paymentId: payment.id, status: callbackResponse.status, processed: result.processed }, 'Payment callback processed');
 
-      return callbackResponse;
+      return { ...callbackResponse, processed: result.processed };
 
     } catch (error) {
       logger.error({

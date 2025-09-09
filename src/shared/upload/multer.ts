@@ -4,9 +4,10 @@ import path from 'path';
 import fs from 'fs';
 import { env } from '../../config/env';
 import { Request, Response, NextFunction } from 'express';
+import sharp from 'sharp';
 
-const uploadDirAbs = path.isAbsolute(env.UPLOAD_DIR) ? env.UPLOAD_DIR : path.join(process.cwd(), env.UPLOAD_DIR);
-if (!fs.existsSync(uploadDirAbs)) fs.mkdirSync(uploadDirAbs, { recursive: true });
+const publicRootAbs = path.isAbsolute(env.UPLOAD_PUBLIC_DIR) ? env.UPLOAD_PUBLIC_DIR : path.join(process.cwd(), env.UPLOAD_PUBLIC_DIR);
+if (!fs.existsSync(publicRootAbs)) fs.mkdirSync(publicRootAbs, { recursive: true });
 
 const storage = multer.diskStorage({
   destination: (req: Request, _file: MulterFile, cb: (error: Error | null, destination: string) => void) => {
@@ -16,7 +17,7 @@ const storage = multer.diskStorage({
     if (!uuidRegex.test(draftId)) {
       return cb(new Error('Invalid draft ID format'), '');
     }
-    const dest = path.join(uploadDirAbs, 'drafts', draftId);
+    const dest = path.join(publicRootAbs, 'drafts', draftId);
     fs.mkdirSync(dest, { recursive: true });
     cb(null, dest);
   },
@@ -41,10 +42,26 @@ function isAllowedMime(mime: string): boolean {
 
 const baseMulter = multer({
   storage,
-  limits: { fileSize: (env.UPLOAD_MAX_SIZE_MB as number) * 1024 * 1024 },
+  limits: { 
+    fileSize: (env.UPLOAD_MAX_SIZE_MB as number) * 1024 * 1024,
+    files: 1, // Only one file at a time for security
+    fields: 5, // Limit form fields
+    fieldNameSize: 100, // Limit field name size
+    fieldSize: 1024 * 1024 // 1MB field size limit
+  },
   fileFilter: (_req: Request, file: MulterFile, cb: FileFilterCallback) => {
+    // Additional security checks
     if (!isAllowedMime(file.mimetype)) {
       return cb(new Error('Invalid file type'));
+    }
+    // Check for suspicious filenames
+    if (/[<>:"|?*]/.test(file.originalname)) {
+      return cb(new Error('Invalid filename characters'));
+    }
+    // Check file extension matches MIME type
+    const expectedExt = extensionForMime(file.mimetype);
+    if (!file.originalname.toLowerCase().endsWith(expectedExt)) {
+      return cb(new Error('File extension does not match content type'));
     }
     cb(null, true);
   },
@@ -57,7 +74,7 @@ export function attachRelativePath(req: Request, _res: Response, next: NextFunct
   const anyReq = req as unknown as { files?: MulterFile[] | Record<string, MulterFile[]>; file?: MulterFile; fileRelPath?: string };
   const files = (anyReq.files as MulterFile[]) || (anyReq.file ? [anyReq.file as MulterFile] : []);
   if (files && files[0]) {
-    const rel = path.relative(uploadDirAbs, files[0].path).replace(/\\/g, '/');
+    const rel = path.relative(publicRootAbs, files[0].path).replace(/\\/g, '/');
     anyReq.fileRelPath = rel;
   }
   next();
@@ -98,6 +115,26 @@ function detectMime(header: Buffer): string | null {
   // PDF
   if (header.slice(0, 4).equals(Buffer.from([0x25, 0x50, 0x44, 0x46]))) return 'application/pdf';
   return null;
+}
+
+// Optional: sanitize images by re-encoding with sharp (strips metadata, normalizes)
+export async function sanitizeImage(req: Request, res: Response, next: NextFunction) {
+  try {
+    const anyReq = req as any;
+    const file = anyReq.file as MulterFile | undefined;
+    if (!file) return next();
+    if (!/^image\//.test(file.mimetype)) return next();
+    const input = await fs.promises.readFile(file.path);
+    let output: Buffer;
+    if (file.mimetype === 'image/png') output = await sharp(input).png({ compressionLevel: 9 }).toBuffer();
+    else if (file.mimetype === 'image/jpeg') output = await sharp(input).jpeg({ quality: 85 }).toBuffer();
+    else if (file.mimetype === 'image/webp') output = await sharp(input).webp({ quality: 85 }).toBuffer();
+    else return next();
+    await fs.promises.writeFile(file.path, output);
+    next();
+  } catch (e) {
+    next(e);
+  }
 }
 
 

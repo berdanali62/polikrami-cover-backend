@@ -48,14 +48,14 @@ enum SubscriptionStatus {
 
 // Core models
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  password  String
-  name      String?
-  avatarUrl String?
+  id              String    @id @default(uuid())
+  email           String    @unique
+  password        String
+  name            String?
+  avatarUrl       String?
   emailVerifiedAt DateTime?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   projects                Project[]
   roles                   UserRole[]
@@ -74,8 +74,13 @@ model User {
   events                  Event[]
   storageStat             StorageStat?
   projectMemberships      ProjectMember[]
-  drafts                  Draft[]                 @relation("DraftOwner")
-  assignedDrafts          Draft[]                 @relation("DraftAssignedDesigner")
+  drafts                  Draft[]                  @relation("DraftOwner")
+  assignedDrafts          Draft[]                  @relation("DraftAssignedDesigner")
+  CreditWallet            CreditWallet[]
+  CreditTransaction       CreditTransaction[]
+  AiJob                   AiJob[]
+  designerReviewsReceived DesignerReview[]        @relation("DesignerReviewsDesigner")
+  designerReviewsGiven    DesignerReview[]        @relation("DesignerReviewsReviewer")
 }
 
 model Project {
@@ -276,7 +281,7 @@ model Asset {
   id        String   @id @default(uuid())
   ownerId   String?
   kind      String
-  path      String   // relative path under uploads dir
+  path      String // relative path under uploads dir
   mimeType  String
   bytes     Int
   meta      Json?
@@ -390,8 +395,8 @@ model ProjectMember {
   role      String   @default("editor")
   createdAt DateTime @default(now())
 
-  project   Project @relation(fields: [projectId], references: [id])
-  user      User    @relation(fields: [userId], references: [id])
+  project Project @relation(fields: [projectId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
 
   @@id([projectId, userId])
 }
@@ -442,6 +447,7 @@ model Order {
   items    OrderItem[]
   payments Payment[]
   invoice  Invoice?
+  shipments Shipment[]
 
   @@index([userId])
   @@index([userId, createdAt])
@@ -496,6 +502,55 @@ model Invoice {
   @@index([userId])
 }
 
+// Shipment tracking
+enum ShipmentStatus {
+  created
+  label_created
+  in_transit
+  out_for_delivery
+  delivered
+  exception
+  returned
+  cancelled
+}
+
+model Shipment {
+  id                  String          @id @default(uuid())
+  orderId             String
+  carrierCode         String
+  carrierName         String?
+  trackingNumber      String
+  externalId          String?
+  status              ShipmentStatus  @default(created)
+  estimatedDeliveryAt DateTime?
+  lastSyncAt          DateTime?
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  order  Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  events ShipmentEvent[]
+
+  @@unique([carrierCode, trackingNumber])
+  @@index([orderId])
+  @@index([status, updatedAt])
+}
+
+model ShipmentEvent {
+  id              String   @id @default(uuid())
+  shipmentId      String
+  occurredAt      DateTime
+  status          String
+  description     String?
+  location        String?
+  raw             Json?
+  providerEventId String?  @unique
+  createdAt       DateTime @default(now())
+
+  shipment Shipment @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+
+  @@index([shipmentId, occurredAt])
+}
+
 // Notifications & Emails
 model Notification {
   id        String   @id @default(uuid())
@@ -530,22 +585,30 @@ model EmailQueue {
 
 // Draft flow for multi-step customization
 model Draft {
-  id            String        @id @default(uuid())
+  id            String    @id @default(uuid())
   userId        String
-  method        String                      // upload | ai | artist
-  step          Int           @default(1)
+  method        String // upload | ai | artist
+  step          Int       @default(1)
   data          Json?
   messageCardId String?
   shipping      Json?
   committedAt   DateTime?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   assignedDesignerId String?
-  assignedDesigner   User?       @relation("DraftAssignedDesigner", fields: [assignedDesignerId], references: [id])
+  assignedDesigner   User?   @relation("DraftAssignedDesigner", fields: [assignedDesignerId], references: [id])
 
-  user        User        @relation("DraftOwner", fields: [userId], references: [id])
-  messageCard MessageCard? @relation(fields: [messageCardId], references: [id])
+  // AI generation fields
+  aiPromptOriginal  String?
+  aiPromptFinal     String?
+  aiSelectedImageId String?
+  aiRegenCount      Int     @default(0)
+
+  user           User             @relation("DraftOwner", fields: [userId], references: [id])
+  messageCard    MessageCard?     @relation(fields: [messageCardId], references: [id])
+  AiJob          AiJob[]
+  GeneratedImage GeneratedImage[]
 
   @@index([userId])
   @@index([userId, createdAt])
@@ -557,12 +620,12 @@ model Draft {
 }
 
 model MessageCard {
-  id          String   @id @default(uuid())
-  title       String
+  id           String   @id @default(uuid())
+  title        String
   thumbnailUrl String?
-  priceCents  Int      @default(0)
-  isPublished Boolean  @default(true)
-  createdAt   DateTime @default(now())
+  priceCents   Int      @default(0)
+  isPublished  Boolean  @default(true)
+  createdAt    DateTime @default(now())
 
   drafts Draft[]
 
@@ -586,12 +649,31 @@ model Event {
   @@index([type, createdAt])
   @@index([userId, createdAt])
 }
+
+// Reviews & ratings for designers
+model DesignerReview {
+  id         String   @id @default(uuid())
+  designerId String
+  reviewerId String
+  rating     Int
+  comment    String?
+  createdAt  DateTime @default(now())
+
+  designer User @relation("DesignerReviewsDesigner", fields: [designerId], references: [id], onDelete: Cascade)
+  reviewer User @relation("DesignerReviewsReviewer", fields: [reviewerId], references: [id], onDelete: Cascade)
+
+  @@index([designerId, createdAt])
+  @@index([reviewerId, createdAt])
+  @@unique([designerId, reviewerId])
+}
+
 generator erd {
   provider = "prisma-erd-generator"
   output   = "./ERD.svg" // DİKKAT: ./prisma/ERD.svg değil
   // theme = "neutral"    // opsiyonel: "forest" | "dark" | "neutral"
   // format = "svg"       // varsayılan zaten svg
 }
+
 // Storage (usage/quota)
 model StorageStat {
   id          String   @id @default(uuid())
@@ -605,4 +687,66 @@ model StorageStat {
 
   @@unique([ownerUserId])
   @@unique([ownerOrgId])
+}
+
+// Wallet for AI credit balance per user
+model CreditWallet {
+  userId    String   @id
+  balance   Int      @default(0)
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+// Credit transactions ledger (gift, purchase, spend, refund)
+model CreditTransaction {
+  id        String   @id @default(uuid())
+  userId    String
+  delta     Int
+  type      String
+  refId     String?
+  note      String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt])
+}
+
+// AI generation job record
+model AiJob {
+  id          String    @id @default(uuid())
+  draftId     String
+  userId      String
+  provider    String
+  params      Json?
+  costCredits Int       @default(0)
+  status      String    @default("queued")
+  error       String?
+  createdAt   DateTime  @default(now())
+  finishedAt  DateTime?
+
+  draft  Draft            @relation(fields: [draftId], references: [id], onDelete: Cascade)
+  user   User             @relation(fields: [userId], references: [id])
+  images GeneratedImage[]
+
+  @@index([draftId, createdAt])
+  @@index([userId, createdAt])
+}
+
+// Generated images belonging to an AI job
+model GeneratedImage {
+  id             String   @id @default(uuid())
+  draftId        String
+  jobId          String
+  storageKey     String
+  watermarkedUrl String
+  meta           Json?
+  createdAt      DateTime @default(now())
+
+  draft Draft @relation(fields: [draftId], references: [id], onDelete: Cascade)
+  job   AiJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([draftId, createdAt])
+  @@index([jobId])
 }

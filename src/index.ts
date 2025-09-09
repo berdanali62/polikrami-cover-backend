@@ -3,6 +3,7 @@ import app from './app';
 import { env } from './config/env';
 import { logger } from './utils/logger';
 import { shutdownDatabase } from './config/database';
+import { aiWorker } from './queue/ai.worker';
 
 const server = createServer(app);
 

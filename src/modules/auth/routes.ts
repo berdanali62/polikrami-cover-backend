@@ -6,11 +6,12 @@ import { loginController, logoutController, refreshController, registerControlle
 import { asyncHandler } from '../../shared/helpers/asyncHandler';
 import { forgotPasswordSchema, resetPasswordSchema, verifyResetCodeSchema } from './dto/forgot-password.dto';
 import { resendVerificationSchema, verifyEmailSchema } from './dto/verify-email.dto';
+import { checkAccountLock } from '../../middlewares/accountLock';
 
 const router = Router();
 
 router.post('/register', validateBody(registerSchema), asyncHandler(registerController));
-router.post('/login', validateBody(loginSchema), asyncHandler(loginController));
+router.post('/login', validateBody(loginSchema), checkAccountLock, asyncHandler(loginController));
 router.post('/refresh', asyncHandler(refreshController));
 router.post('/logout', asyncHandler(logoutController));
 router.post('/forgot-password', validateBody(forgotPasswordSchema), asyncHandler(forgotPasswordController));

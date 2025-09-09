@@ -1,3 +1,19 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
+// Increase default timeout for longer e2e flows
+jest.setTimeout(30000);
+
+// Mock nodemailer to avoid real SMTP connections in tests
+jest.mock('nodemailer', () => ({
+  __esModule: true,
+  default: {
+    createTransport: () => ({
+      sendMail: async () => ({ messageId: 'test-message-id' }),
+    }),
+  },
+}));
+
 process.env.NODE_ENV = 'test';
 process.env.JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET || 'test_access_secret_123456';
 process.env.JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'test_refresh_secret_123456';
@@ -14,6 +30,5 @@ process.env.UPLOAD_DIR = process.env.UPLOAD_DIR || './uploads-test';
 process.env.UPLOAD_MAX_SIZE_MB = process.env.UPLOAD_MAX_SIZE_MB || '10';
 process.env.UPLOAD_ALLOWED_MIME = process.env.UPLOAD_ALLOWED_MIME || 'image/png,image/jpeg';
 
-// Provide a dummy DATABASE_URL though tests will mock prisma where needed
-process.env.DATABASE_URL = process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/postgres?schema=public';
+// DATABASE_URL will be taken from .env if present; do not override ports/credentials here
 

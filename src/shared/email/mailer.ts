@@ -15,11 +15,23 @@ export interface SendEmailParams {
 }
 
 const transporter = nodemailer.createTransport({
+  name: env.SMTP_NAME || undefined,
   host: env.SMTP_HOST,
   port: env.SMTP_PORT,
   secure: env.SMTP_SECURE,
+  requireTLS: env.SMTP_REQUIRE_TLS,
+  ignoreTLS: env.SMTP_IGNORE_TLS,
+  connectionTimeout: env.SMTP_CONNECTION_TIMEOUT_MS,
+  greetingTimeout: env.SMTP_GREETING_TIMEOUT_MS,
+  socketTimeout: env.SMTP_SOCKET_TIMEOUT_MS,
   auth: env.SMTP_USER && env.SMTP_PASS ? { user: env.SMTP_USER, pass: env.SMTP_PASS } : undefined,
-  tls: env.SMTP_TLS_INSECURE ? { rejectUnauthorized: false } : undefined,
+  tls: Object.assign(
+    {},
+    env.SMTP_TLS_INSECURE ? { rejectUnauthorized: false } : {},
+    env.SMTP_TLS_MIN_VERSION ? { minVersion: env.SMTP_TLS_MIN_VERSION } : {}
+  ),
+  logger: env.SMTP_LOGGER,
+  debug: env.SMTP_DEBUG,
 });
 
 export async function sendEmail(params: SendEmailParams): Promise<void> {
@@ -40,6 +52,11 @@ export async function sendEmail(params: SendEmailParams): Promise<void> {
       subject: params.subject,
       text: params.text,
       html: params.html,
+      // Use SMTP_USER as envelope sender to satisfy some SMTP servers while displaying a different From header
+      envelope: {
+        from: env.SMTP_USER || env.EMAIL_FROM,
+        to,
+      },
     });
     await prisma.emailQueue.update({
       where: { id: queued.id },
@@ -48,11 +65,11 @@ export async function sendEmail(params: SendEmailParams): Promise<void> {
     if (process.env.NODE_ENV !== 'production') {
       console.log('[MAIL] sent', { to, subject: params.subject, messageId: info.messageId });
     }
-  } catch (err: any) {
+  } catch (err: unknown) {
     try {
       await prisma.emailQueue.update({
         where: { id: queued.id },
-        data: { status: 'failed', error: String(err?.message ?? err) },
+        data: { status: 'failed', error: String((err as Error)?.message ?? err) },
       });
     } catch (dbError) {
       const { logger } = await import('../../utils/logger');

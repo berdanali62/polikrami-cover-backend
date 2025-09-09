@@ -3,10 +3,11 @@ import { findUserByEmail, createUser } from '../repository/userRepo';
 import { createRefreshToken, revokeRefreshToken, findLatestRefreshTokenByUser, revokeAllRefreshTokensByUser } from '../repository/tokenRepo';
 import { hashPassword, verifyPassword, hashToken, verifyTokenHash } from '../../../shared/helpers/crypto';
 import { signAccessToken, signRefreshToken, verifyToken } from '../../../shared/helpers/jwt';
+import { recordLoginFailure, recordLoginSuccess } from '../../../middlewares/accountLock';
 import { env } from '../../../config/env';
 import { prisma } from '../../../config/database';
 import { sendEmail } from '../../../shared/email/mailer';
-import { ApiError, unauthorized, badRequest, conflict, notFound } from '../../../shared/errors/ApiError';
+import { unauthorized, badRequest, conflict } from '../../../shared/errors/ApiError';
 
 export class AuthService {
   async register(params: { email: string; password: string; name?: string; role?: 'user' | 'designer' }) {
@@ -28,6 +29,16 @@ export class AuthService {
       const { logger } = await import('../../../utils/logger');
       logger.error({ error, email: params.email }, 'Failed to send email verification');
     }
+    // Seed initial credits (500)
+    try {
+      await prisma.$transaction([
+        prisma.creditWallet.upsert({ where: { userId: user.id }, update: { balance: { increment: 500 } }, create: { userId: user.id, balance: 500 } }),
+        prisma.creditTransaction.create({ data: { userId: user.id, delta: 500, type: 'gift', note: 'welcome-bonus' } })
+      ]);
+    } catch (e) {
+      const { logger } = await import('../../../utils/logger');
+      logger.error({ e, userId: user.id }, 'Failed to grant welcome credits');
+    }
     return { id: user.id, email: user.email, name: user.name };
   }
 
@@ -35,12 +46,20 @@ export class AuthService {
     const user = await findUserByEmail(params.email);
     if (!user) throw unauthorized('Invalid credentials');
     const ok = await verifyPassword(user.password, params.password);
-    if (!ok) throw unauthorized('Invalid credentials');
+    if (!ok) {
+      try { await recordLoginFailure(user.id); } catch { /* ignore */ }
+      throw unauthorized('Invalid credentials');
+    }
 
-    // Get user role for JWT
+    // Get user role for JWT - optimized single query
     const userWithRole = await prisma.user.findUnique({
       where: { id: user.id },
-      include: { roles: { include: { role: true } } }
+      select: { 
+        roles: { 
+          select: { role: { select: { name: true } } },
+          take: 1 // Only get first role for performance
+        } 
+      }
     });
     const roleName = userWithRole?.roles?.[0]?.role?.name;
 
@@ -52,6 +71,7 @@ export class AuthService {
     const expiresAt = new Date(Date.now() + ms(env.REFRESH_EXPIRES_IN));
     const tokenHash = await hashToken(tokenId);
     await createRefreshToken({ id: tokenId, userId: user.id, tokenHash, userAgent: params.ua, ip: params.ip, expiresAt });
+    try { await recordLoginSuccess(user.id); } catch { /* ignore */ }
 
     return { access, refresh };
   }
@@ -95,10 +115,15 @@ export class AuthService {
     }
     await revokeRefreshToken(latest.id);
     
-    // Get user role for new JWT
+    // Get user role for new JWT - optimized single query
     const userWithRole = await prisma.user.findUnique({
       where: { id: params.userId },
-      include: { roles: { include: { role: true } } }
+      select: { 
+        roles: { 
+          select: { role: { select: { name: true } } },
+          take: 1 // Only get first role for performance
+        } 
+      }
     });
     const roleName = userWithRole?.roles?.[0]?.role?.name;
     

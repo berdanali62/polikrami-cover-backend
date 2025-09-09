@@ -1,0 +1,22 @@
+{
+  "name": "@polikrami/argon2id-hashing",
+  "version": "1.0.0",
+  "description": "Argon2id hashing utilities for passwords and tokens (internal)",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=20"
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "argon2": "^0.40.1"
+  }
+}
+
+

@@ -5,7 +5,8 @@ import { validateBody, validateParams } from '../../middlewares/validation';
 import { z } from 'zod';
 import { createDraftSchema, updateDraftSchema, setMessageCardSchema, setShippingSchema, presignUploadSchema } from './dto/draft.dto';
 import { createDraftController, getMyDraftsController, getDraftController, updateDraftController, uploadPresignController, setMessageCardController, setShippingController, commitDraftController, uploadFileController, assignDesignerController } from './controller/draft.controller';
-import { uploadMiddleware, attachRelativePath, validateMagicBytes } from '../../shared/upload/multer';
+import { uploadMiddleware, attachRelativePath, validateMagicBytes, sanitizeImage } from '../../shared/upload/multer';
+import { ensureDraftOwner } from './middlewares/ensureDraftOwner';
 
 const router = Router();
 const idParam = z.object({ id: z.string().uuid({ message: 'Geçerli bir taslak ID (UUID) giriniz.' }) });
@@ -19,8 +20,10 @@ router.post(
   '/:id/upload',
   requireAuth,
   validateParams(idParam),
+  ensureDraftOwner,
   uploadMiddleware.single('file'),
   validateMagicBytes,
+  sanitizeImage,
   attachRelativePath,
   asyncHandler(uploadFileController)
 );

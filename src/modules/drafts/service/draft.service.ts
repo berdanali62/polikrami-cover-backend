@@ -54,6 +54,9 @@ export class DraftService {
       if (!current) throw notFound('Draft not found');
       if (current.userId !== actorId) throw badRequest('Owner mismatch');
     }
+    // Ensure designer exists and has role 'designer'
+    const designer = await prisma.user.findFirst({ where: { id: designerId, roles: { some: { role: { name: 'designer' } } } }, select: { id: true } });
+    if (!designer) throw notFound('Designer not found');
     return prisma.draft.update({ where: { id }, data: { assignedDesignerId: designerId } as unknown as Prisma.DraftUncheckedUpdateInput });
   }
 
@@ -63,7 +66,7 @@ export class DraftService {
     const fileId = randomUUID();
     const ext = this.extensionForContentType(ct);
     const relKey = `drafts/${id}/${fileId}${ext}`;
-    const absPath = path.join(env.UPLOAD_DIR, relKey);
+    const absPath = path.join(env.UPLOAD_PUBLIC_DIR, relKey);
     await fs.mkdir(path.dirname(absPath), { recursive: true });
     // For local upload, we don’t presign; client will upload via dedicated endpoint with multipart form
     return { url: `/api/drafts/${id}/upload`, method: 'POST' as const, key: relKey, contentType: ct, maxSizeMB: this.maxSizeMB() };
@@ -114,9 +117,9 @@ export class DraftService {
     const card = draft.messageCardId ? await prisma.messageCard.findUnique({ where: { id: draft.messageCardId } }) : null;
     const totalCents = (card?.priceCents ?? 0) + env.SHIPPING_COST_CENTS;
 
-    return prisma.$transaction(async (tx) => {
-      const order = await tx.order.create({ data: { userId, totalCents, currency: 'TRY' } });
-      await tx.orderItem.create({ data: { orderId: order.id, type: 'draft', referenceId: draft.id, unitPriceCents: totalCents, quantity: 1 } });
+    const order = await prisma.$transaction(async (tx) => {
+      const createdOrder = await tx.order.create({ data: { userId, totalCents, currency: 'TRY' } });
+      await tx.orderItem.create({ data: { orderId: createdOrder.id, type: 'draft', referenceId: draft.id, unitPriceCents: totalCents, quantity: 1 } });
       await tx.draft.update({ where: { id }, data: { committedAt: new Date() } });
       // Notify assigned designer if exists (using type-safe query)
       try {
@@ -133,8 +136,25 @@ export class DraftService {
         const { logger } = await import('../../../utils/logger');
         logger.error({ error, draftId: id }, 'Failed to notify assigned designer');
       }
-      return order;
+      return createdOrder;
     });
+
+    // Auto-create shipment after commit (best-effort, non-blocking)
+    try {
+      const { ShipmentService } = await import('../../shipments/service/ShipmentService');
+      const svc = new ShipmentService();
+      const shipping = (draft.shipping as unknown as { carrierCode?: string; carrierName?: string; trackingNumber?: string } | null) || null;
+      const hasCarrier = typeof shipping?.carrierCode === 'string' && shipping.carrierCode.length > 0;
+      const hasTracking = typeof shipping?.trackingNumber === 'string' && shipping.trackingNumber.length > 0;
+      if (hasCarrier && hasTracking) {
+        await svc.createAndRegisterShipment({ orderId: order.id, carrierCode: shipping!.carrierCode!, carrierName: shipping!.carrierName, trackingNumber: shipping!.trackingNumber! });
+      }
+    } catch (e) {
+      const { logger } = await import('../../../utils/logger');
+      logger.error({ e, draftId: id }, 'Auto-shipment create failed');
+    }
+
+    return order;
   }
 
   private async ensureMessageCardExists(id: string) {

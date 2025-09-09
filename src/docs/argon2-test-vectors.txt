@@ -1,0 +1,9 @@
+password_plain=P@ssw0rd!
+password_salt_hex=000102030405060708090a0b0c0d0e0f
+password_phc=$argon2id$v=19$m=65536,t=3,p=2$AAECAwQFBgcICQoLDA0ODw$USxA6CUhf8+EdMRdqSJkjCsZk6JNOwe4Ax+QKwsP3eQ
+password_verify=true
+
+token_plain=12345678-1234-1234-1234-1234567890ab
+token_salt_hex=000102030405060708090a0b0c0d0e0f
+token_phc=$argon2id$v=19$m=65536,t=2,p=2$AAECAwQFBgcICQoLDA0ODw$qzBXfVfjKnj/GEE8M8gou3dbmz34lLVOyMXQki605I4
+token_verify=true

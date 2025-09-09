@@ -87,8 +87,8 @@ export async function deleteAssetController(req: Request, res: Response) {
   }
   
   try {
-    // Delete physical file
-    const filePath = path.join(env.UPLOAD_DIR, asset.path);
+    // Delete physical file from PUBLIC root (assets live under public)
+    const filePath = path.join(process.cwd(), env.UPLOAD_PUBLIC_DIR, asset.path);
     await fs.unlink(filePath);
   } catch (error) {
     // File might already be deleted, continue with DB cleanup

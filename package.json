@@ -17,23 +17,34 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
-    "cleanup:email-queue": "tsx src/scripts/cleanup-email-queue.ts"
+    "cleanup:email-queue": "tsx src/scripts/cleanup-email-queue.ts",
+    "cleanup:ai-tmp": "tsx src/scripts/cleanup-tmp-ai.ts",
+    "doc:pdf": "md-to-pdf src/docs/SECURITY_HASHING_SPEC.md",
+    "build:pkg:argon2": "npm --prefix packages/argon2id-hashing run build",
+    "pack:pkg:argon2": "npm --prefix packages/argon2id-hashing pack"
   },
+  "workspaces": [
+    "packages/*"
+  ],
   "dependencies": {
     "@prisma/client": "^5.16.1",
     "argon2": "^0.40.1",
+    "bullmq": "^5.9.0",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "helmet": "^7.1.0",
+    "ioredis": "^5.4.1",
     "iyzipay": "^2.0.64",
     "jsonwebtoken": "^9.0.2",
     "multer": "^1.4.5-lts.1",
     "nodemailer": "^6.9.13",
     "pino": "^9.2.0",
     "pino-pretty": "^11.2.2",
+    "prom-client": "^15.1.1",
     "rate-limiter-flexible": "^5.0.0",
+    "sharp": "^0.33.4",
     "uuid": "^9.0.1",
     "zod": "^3.23.8"
   },
@@ -53,6 +64,7 @@
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-import": "^2.29.1",
     "jest": "^29.7.0",
+    "md-to-pdf": "^5.2.4",
     "prettier": "^3.3.3",
     "prisma": "^5.16.1",
     "prisma-erd-generator": "^2.0.4",
