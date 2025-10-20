@@ -26,14 +26,14 @@ export class OrderService {
     return prisma.order.update({ where: { id: orderId }, data: { status } });
   }
 
-  async cancel(userId: string, orderId: string) {
+  async cancel(userId: string, orderId: string, reason?: string) {
     const order = await prisma.order.findFirst({ where: { id: orderId, userId } });
     if (!order) throw notFound('Order not found');
     if (order.status !== OrderStatus.pending) {
       // Paid or already canceled/refunded can't be canceled here
       return order;
     }
-    return prisma.order.update({ where: { id: orderId }, data: { status: OrderStatus.canceled } });
+    return prisma.order.update({ where: { id: orderId }, data: { status: OrderStatus.canceled, cancelReason: reason } });
   }
 }
 

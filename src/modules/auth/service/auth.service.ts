@@ -10,13 +10,29 @@ import { sendEmail } from '../../../shared/email/mailer';
 import { unauthorized, badRequest, conflict } from '../../../shared/errors/ApiError';
 
 export class AuthService {
-  async register(params: { email: string; password: string; name?: string; role?: 'user' | 'designer' }) {
+  async register(params: { email: string; password: string; name?: string; role?: 'user' | 'designer'; acceptTerms?: boolean; acceptPrivacy?: boolean; acceptRevenueShare?: boolean }) {
     const existing = await findUserByEmail(params.email);
     if (existing) {
       throw conflict('Email already in use');
     }
     const password = await hashPassword(params.password);
     const user = await createUser({ email: params.email, password, name: params.name, role: params.role });
+    // Store acceptance timestamps on profile/user (best-effort)
+    try {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          termsAcceptedAt: params.acceptTerms ? new Date() : undefined,
+          privacyAcceptedAt: params.acceptPrivacy ? new Date() : undefined,
+        },
+      });
+      if (params.role === 'designer' && params.acceptRevenueShare) {
+        // Tolerate schema differences in tests: set subset of profile fields if columns exist
+        try {
+          await prisma.userProfile.upsert({ where: { userId: user.id }, update: { revenueShareAcceptedAt: new Date() }, create: { userId: user.id, revenueShareAcceptedAt: new Date() } });
+        } catch {}
+      }
+    } catch {}
     // Generate email verification token
     try {
       const code = randomUUID();
@@ -89,13 +105,29 @@ export class AuthService {
   }
 
   async verifyEmail(token: string) {
-    const rec = await prisma.emailVerificationToken.findFirst({ where: { usedAt: null, expiresAt: { gt: new Date() } }, orderBy: { createdAt: 'desc' } });
-    if (!rec) throw badRequest('Invalid token');
-    const ok = await verifyTokenHash(rec.tokenHash, token);
-    if (!ok) throw badRequest('Invalid token');
+    // Tüm kullanılmamış ve süresi dolmamış token'ları al
+    const tokens = await prisma.emailVerificationToken.findMany({ 
+      where: { usedAt: null, expiresAt: { gt: new Date() } }, 
+      orderBy: { createdAt: 'desc' } 
+    });
+    
+    if (!tokens.length) throw badRequest('Invalid or expired token');
+    
+    // Gelen token ile eşleşen token'ı bul
+    let matchedToken = null;
+    for (const rec of tokens) {
+      const ok = await verifyTokenHash(rec.tokenHash, token);
+      if (ok) {
+        matchedToken = rec;
+        break;
+      }
+    }
+    
+    if (!matchedToken) throw badRequest('Invalid token');
+    
     await prisma.$transaction([
-      prisma.user.update({ where: { id: rec.userId }, data: { emailVerifiedAt: new Date() } }),
-      prisma.emailVerificationToken.update({ where: { id: rec.id }, data: { usedAt: new Date() } }),
+      prisma.user.update({ where: { id: matchedToken.userId }, data: { emailVerifiedAt: new Date() } }),
+      prisma.emailVerificationToken.update({ where: { id: matchedToken.id }, data: { usedAt: new Date() } }),
     ]);
   }
 

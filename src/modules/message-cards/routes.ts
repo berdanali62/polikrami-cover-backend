@@ -1,10 +1,11 @@
 import { Router } from 'express';
 import { asyncHandler } from '../../shared/helpers/asyncHandler';
-import { listMessageCardsController } from './controller/messageCard.controller';
+import { listMessageCardsController, popularMessageCardsController } from './controller/messageCard.controller';
 
 const router = Router();
 
 router.get('/', asyncHandler(listMessageCardsController));
+router.get('/popular', asyncHandler(popularMessageCardsController));
 
 export default router;
 

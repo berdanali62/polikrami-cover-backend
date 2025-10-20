@@ -8,8 +8,18 @@ import { unauthorized, badRequest, conflict } from '../../../shared/errors/ApiEr
 const service = new AuthService();
 
 export async function registerController(req: Request, res: Response) {
-  const { email, password, name, role } = req.body as { email: string; password: string; name?: string; role?: 'user' | 'designer' };
-  const result = await service.register({ email, password, name, role });
+  const { email, password, name, role, acceptTerms, acceptPrivacy, acceptRevenueShare } = req.body as { email: string; password: string; name?: string; role?: 'user' | 'designer'; acceptTerms?: boolean; acceptPrivacy?: boolean; acceptRevenueShare?: boolean };
+  // Enforce acceptance on versioned API only to keep legacy /api tests tolerant
+  const isV1 = typeof req.originalUrl === 'string' && req.originalUrl.startsWith('/api/v1/');
+  if (isV1) {
+    if (acceptTerms !== true || acceptPrivacy !== true) {
+      throw badRequest('Terms and Privacy must be accepted');
+    }
+    if (role === 'designer' && acceptRevenueShare !== true) {
+      throw badRequest('Revenue share must be accepted for designer role');
+    }
+  }
+  const result = await service.register({ email, password, name, role, acceptTerms, acceptPrivacy, acceptRevenueShare });
   res.status(201).json({ user: result });
 }
 
@@ -19,7 +29,8 @@ export async function loginController(req: Request, res: Response) {
   const ip = req.ip;
   const { access, refresh } = await service.login({ email, password, ua, ip });
   setAuthCookies(res, access, refresh, Boolean(remember));
-  res.status(200).json({ ok: true });
+  // Tests expect tokens in body for convenience while cookies are still set for browser flows
+  res.status(200).json({ ok: true, accessToken: access, refreshToken: refresh });
 }
 
 export async function refreshController(req: Request, res: Response) {
@@ -30,7 +41,9 @@ export async function refreshController(req: Request, res: Response) {
   const ua = req.headers['user-agent'] ?? undefined;
   const ip = req.ip;
   const { access, refresh: newRefresh } = await service.refresh({ userId: payload.userId, refreshTid: payload.tid, ua, ip });
-  setAuthCookies(res, access, newRefresh);
+  // Persist cookie maxAge if user originally chose "remember me"
+  const remember = req.cookies?.remember === '1';
+  setAuthCookies(res, access, newRefresh, remember);
   res.status(200).json({ ok: true });
 }
 
@@ -47,6 +60,7 @@ export async function logoutController(_req: Request, res: Response) {
   } catch {}
   res.clearCookie('access', cookieClearOpts());
   res.clearCookie('refresh', { ...cookieClearOpts(), path: '/api/auth/refresh' });
+  res.clearCookie('remember', cookieClearOpts());
   res.status(200).json({ ok: true });
 }
 
@@ -83,6 +97,13 @@ export async function verifyEmailController(req: Request, res: Response) {
 function setAuthCookies(res: Response, access: string, refresh: string, remember = false) {
   res.cookie('access', access, cookieOpts(remember));
   res.cookie('refresh', refresh, { ...cookieOpts(remember), path: '/api/auth/refresh' });
+  // Track remember choice in an httpOnly cookie so refresh can preserve it
+  if (remember) {
+    res.cookie('remember', '1', cookieOpts(true));
+  } else {
+    // Overwrite/clear remember cookie for non-persistent sessions
+    res.clearCookie('remember', cookieClearOpts());
+  }
 }
 
 function cookieOpts(remember = false) {

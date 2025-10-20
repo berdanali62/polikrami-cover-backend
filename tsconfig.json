@@ -10,8 +10,14 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
-    "noUncheckedIndexedAccess": true
+    "noUncheckedIndexedAccess": true,
+    "composite": true,
+    "declaration": true
   },
-  "include": ["src"]
+  "include": [
+    "src/**/*",  
+    "src/**/*.ts",
+    "src/**/*.tsx"
+  ]
 }
 

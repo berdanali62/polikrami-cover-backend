@@ -9,4 +9,242 @@ paths:
       responses:
         '200':
           description: OK
+  /api/v1/message-cards/popular:
+    get:
+      summary: Popular message cards
+      tags: [MessageCards]
+      responses:
+        '200':
+          description: List with like counts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id: { type: string }
+                    title: { type: string }
+                    thumbnailUrl: { type: string, nullable: true }
+                    likes: { type: integer }
+  /api/v1/likes/cards/{id}/summary:
+    get:
+      summary: Like count for a card
+      tags: [Likes]
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: string
+          required: true
+      responses:
+        '200':
+          description: Count
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  likes: { type: integer }
+  /api/v1/designers/public/{id}:
+    get:
+      summary: Public designer profile
+      tags: [Designers]
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: string
+          required: true
+      responses:
+        '200':
+          description: Profile
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: string }
+                  name: { type: string, nullable: true }
+                  avatarUrl: { type: string, nullable: true }
+                  profile: { type: object, nullable: true }
+                  rating:
+                    type: object
+                    properties:
+                      avg: { type: number }
+                      count: { type: integer }
+  /api/v1/designers/public:
+    get:
+      summary: Search designers publicly
+      tags: [Designers]
+      parameters:
+        - in: query
+          name: q
+          schema: { type: string }
+        - in: query
+          name: skill
+          schema: { type: string }
+        - in: query
+          name: limit
+          schema: { type: integer, default: 20 }
+      responses:
+        '200':
+          description: Designers list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string }
+                        name: { type: string, nullable: true }
+                        avatarUrl: { type: string, nullable: true }
+                        profile: { type: object, nullable: true }
+  /api/v1/shipments/public/{id}/events:
+    get:
+      summary: Public shipment events
+      tags: [Shipments]
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: string
+          required: true
+      responses:
+        '200':
+          description: Events
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  shipment:
+                    type: object
+                    properties:
+                      id: { type: string }
+                      status: { type: string }
+                      carrierCode: { type: string }
+                      trackingNumber: { type: string }
+                  events:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string }
+                        occurredAt: { type: string, format: date-time }
+                        status: { type: string }
+                        description: { type: string, nullable: true }
+                        location: { type: string, nullable: true }
+  /api/v1/auth/register:
+    post:
+      summary: Register
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password, confirmPassword, acceptTerms, acceptPrivacy]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string, minLength: 8 }
+                confirmPassword: { type: string }
+                name: { type: string }
+                role: { type: string, enum: [user, designer] }
+                acceptTerms: { type: boolean }
+                acceptPrivacy: { type: boolean }
+                acceptRevenueShare: { type: boolean }
+      responses:
+        '201': { description: Created }
+  /api/v1/drafts/{id}/preview:
+    post:
+      summary: Send preview (designer)
+      tags: [Drafts]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: OK }
+  /api/v1/drafts/{id}/revision:
+    post:
+      summary: Request revision (user)
+      tags: [Drafts]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: OK }
+  /api/v1/drafts/{id}/approve:
+    post:
+      summary: Approve preview (user)
+      tags: [Drafts]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: OK }
+  /api/v1/drafts/{id}/cancel:
+    post:
+      summary: Cancel draft (user)
+      tags: [Drafts]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: OK }
+  /api/v1/orders/{id}/cancel:
+    post:
+      summary: Cancel order with reason
+      tags: [Orders]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason: { type: string }
+      responses:
+        '200': { description: OK }
+
+  /api/v1/users/phone/send-code:
+    post:
+      summary: Send phone verification code
+      tags: [Users]
+      responses:
+        '200':
+          description: OK
+
+  /api/v1/users/phone/verify:
+    post:
+      summary: Verify phone code
+      tags: [Users]
+      responses:
+        '200':
+          description: OK
+  /api/v1/users/phone/firebase-verify:
+    post:
+      summary: Verify phone via Firebase ID token
+      tags: [Users]
+      responses:
+        '200':
+          description: OK
 

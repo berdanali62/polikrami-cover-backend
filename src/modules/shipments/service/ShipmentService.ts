@@ -1,100 +1,443 @@
 import { prisma } from '../../../config/database';
-import { notFound, forbidden } from '../../../shared/errors/ApiError';
+import { notFound, forbidden, badRequest } from '../../../shared/errors/ApiError';
 import { Prisma, ShipmentStatus } from '@prisma/client';
 import { env } from '../../../config/env';
 import type { Request } from 'express';
 import { getShipmentProvider } from '../provider';
 
 export class ShipmentService {
+  /**
+   * Get all shipments for an order (user must own the order)
+   */
   async getOrderShipments(userId: string, orderId: string) {
-    const order = await prisma.order.findUnique({ where: { id: orderId }, select: { userId: true } });
-    if (!order) throw notFound('Order not found');
-    if (order.userId !== userId) throw forbidden();
-    const shipments = await prisma.shipment.findMany({ where: { orderId }, orderBy: { createdAt: 'asc' } });
+    // Verify order ownership
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      select: { userId: true }
+    });
+
+    if (!order) {
+      throw notFound('Sipariş bulunamadı');
+    }
+
+    if (order.userId !== userId) {
+      throw forbidden('Bu siparişe erişim yetkiniz yok');
+    }
+
+    const shipments = await prisma.shipment.findMany({
+      where: { orderId },
+      select: {
+        id: true,
+        carrierCode: true,
+        carrierName: true,
+        trackingNumber: true,
+        status: true,
+        estimatedDeliveryAt: true,
+        createdAt: true,
+        updatedAt: true,
+        lastSyncAt: true
+      },
+      orderBy: { createdAt: 'asc' }
+    });
+
     return shipments;
   }
 
+  /**
+   * Get shipment events (user must own the order)
+   */
   async getShipmentEvents(userId: string, shipmentId: string) {
-    const shp = await prisma.shipment.findUnique({ where: { id: shipmentId }, include: { order: { select: { userId: true } } } });
-    if (!shp) throw notFound('Shipment not found');
-    if (shp.order.userId !== userId) throw forbidden();
-    const events = await prisma.shipmentEvent.findMany({ where: { shipmentId }, orderBy: { occurredAt: 'desc' } });
-    return { shipment: { id: shp.id, status: shp.status, carrierCode: shp.carrierCode, trackingNumber: shp.trackingNumber }, events };
-  }
-
-  async createAndRegisterShipment(params: { orderId: string; carrierCode: string; carrierName?: string; trackingNumber: string }) {
-    // Validate carrier against env list
-    const allowed = new Set((env.SHIPMENT_CARRIERS as { code: string; name: string }[]).map((c) => c.code));
-    if (!allowed.has(params.carrierCode)) {
-      const fallback = env.SHIPMENT_DEFAULT_CARRIER || 'mock';
-      params = { ...params, carrierCode: fallback };
-    }
-    const order = await prisma.order.findUnique({ where: { id: params.orderId } });
-    if (!order) throw notFound('Order not found');
-    const provider = getShipmentProvider();
-    const created = await prisma.shipment.create({ data: { orderId: params.orderId, carrierCode: params.carrierCode, carrierName: params.carrierName, trackingNumber: params.trackingNumber, status: ShipmentStatus.created } });
-    try {
-      const reg = await provider.registerTracking({ carrierCode: created.carrierCode, trackingNumber: created.trackingNumber, orderId: created.orderId });
-      if (reg?.externalId) {
-        await prisma.shipment.update({ where: { id: created.id }, data: { externalId: reg.externalId } });
-      }
-    } catch {}
-    return created;
-  }
-
-  async syncShipment(shipmentId: string) {
-    const shp = await prisma.shipment.findUnique({ where: { id: shipmentId } });
-    if (!shp) throw notFound('Shipment not found');
-    const provider = getShipmentProvider();
-    const ref = { carrierCode: shp.carrierCode, trackingNumber: shp.trackingNumber, externalId: shp.externalId };
-    const status = await provider.fetchCurrentStatus(ref);
-    const events = await provider.fetchEvents(ref);
-
-    await prisma.$transaction(async (tx) => {
-      if (status?.status) {
-        await tx.shipment.update({ where: { id: shp.id }, data: { status: (status.status as any) || shp.status, estimatedDeliveryAt: status.estimatedDeliveryAt || shp.estimatedDeliveryAt, lastSyncAt: new Date() } });
-      }
-      if (Array.isArray(events)) {
-        for (const e of events) {
-          try {
-            await tx.shipmentEvent.create({ data: { shipmentId: shp.id, occurredAt: e.occurredAt, status: e.status, description: e.description, location: e.location, raw: (e.raw as unknown as Prisma.InputJsonValue), providerEventId: e.providerEventId } });
-          } catch {}
+    const shipment = await prisma.shipment.findUnique({
+      where: { id: shipmentId },
+      include: {
+        order: {
+          select: { userId: true, id: true }
         }
       }
     });
 
-    return { ok: true } as const;
+    if (!shipment) {
+      throw notFound('Kargo kaydı bulunamadı');
+    }
+
+    if (shipment.order.userId !== userId) {
+      throw forbidden('Bu kargoya erişim yetkiniz yok');
+    }
+
+    const events = await prisma.shipmentEvent.findMany({
+      where: { shipmentId },
+      select: {
+        id: true,
+        occurredAt: true,
+        status: true,
+        description: true,
+        location: true,
+        createdAt: true
+        // Don't expose raw data and providerEventId to users
+      },
+      orderBy: { occurredAt: 'desc' }
+    });
+
+    return {
+      shipment: {
+        id: shipment.id,
+        status: shipment.status,
+        carrierCode: shipment.carrierCode,
+        carrierName: shipment.carrierName,
+        trackingNumber: shipment.trackingNumber,
+        estimatedDeliveryAt: shipment.estimatedDeliveryAt,
+        orderId: shipment.order.id
+      },
+      events
+    };
   }
 
+  /**
+   * Public tracking endpoint (with rate limiting)
+   * SECURITY: Should require email/phone verification or tracking token
+   */
+  async getShipmentEventsPublic(shipmentId: string, verificationToken?: string) {
+    const shipment = await prisma.shipment.findUnique({
+      where: { id: shipmentId },
+      select: {
+        id: true,
+        status: true,
+        carrierCode: true,
+        carrierName: true,
+        trackingNumber: true,
+        estimatedDeliveryAt: true,
+        order: {
+          select: {
+            id: true,
+            // Don't expose user info
+          }
+        }
+      }
+    });
+
+    if (!shipment) {
+      throw notFound('Kargo kaydı bulunamadı');
+    }
+
+    // TODO: Implement verification
+    // - Generate tracking token when shipment created
+    // - Send to customer via email/SMS
+    // - Verify token here
+    if (verificationToken) {
+      // Placeholder for future implementation
+      const isValid = await this.verifyTrackingToken(shipmentId, verificationToken);
+      if (!isValid) {
+        throw forbidden('Geçersiz doğrulama kodu');
+      }
+    }
+
+    const events = await prisma.shipmentEvent.findMany({
+      where: { shipmentId },
+      select: {
+        id: true,
+        occurredAt: true,
+        status: true,
+        description: true,
+        location: true
+      },
+      orderBy: { occurredAt: 'desc' }
+    });
+
+    return {
+      shipment: {
+        id: shipment.id,
+        status: shipment.status,
+        carrierCode: shipment.carrierCode,
+        carrierName: shipment.carrierName,
+        trackingNumber: shipment.trackingNumber,
+        estimatedDeliveryAt: shipment.estimatedDeliveryAt
+      },
+      events
+    };
+  }
+
+  /**
+   * Create and register shipment with carrier
+   * Admin only
+   */
+  async createAndRegisterShipment(params: {
+    orderId: string;
+    carrierCode: string;
+    carrierName?: string;
+    trackingNumber: string;
+  }) {
+    // Validate carrier against allowed list
+    const allowedCarriers = new Set(
+      (env.SHIPMENT_CARRIERS as { code: string; name: string }[]).map(c => c.code)
+    );
+
+    if (!allowedCarriers.has(params.carrierCode)) {
+      throw badRequest(
+        `Desteklenmeyen kargo firması: ${params.carrierCode}. ` +
+        `Geçerli kodlar: ${Array.from(allowedCarriers).join(', ')}`
+      );
+    }
+
+    // Verify order exists
+    const order = await prisma.order.findUnique({
+      where: { id: params.orderId },
+      select: { id: true, status: true }
+    });
+
+    if (!order) {
+      throw notFound('Sipariş bulunamadı');
+    }
+
+    // Check for duplicate tracking number
+    const existing = await prisma.shipment.findFirst({
+      where: {
+        carrierCode: params.carrierCode,
+        trackingNumber: params.trackingNumber
+      }
+    });
+
+    if (existing) {
+      throw badRequest('Bu takip numarası zaten kayıtlı');
+    }
+
+    // Create shipment
+    const shipment = await prisma.shipment.create({
+      data: {
+        orderId: params.orderId,
+        carrierCode: params.carrierCode,
+        carrierName: params.carrierName,
+        trackingNumber: params.trackingNumber,
+        status: ShipmentStatus.created
+      }
+    });
+
+    // Register with provider (async, don't block response)
+    void this.registerWithProvider(shipment.id).catch(err => {
+      console.error('[Shipment] Provider registration failed:', err);
+    });
+
+    return shipment;
+  }
+
+  /**
+   * Register shipment with external provider
+   */
+  private async registerWithProvider(shipmentId: string) {
+    const shipment = await prisma.shipment.findUnique({
+      where: { id: shipmentId }
+    });
+
+    if (!shipment) return;
+
+    try {
+      const provider = getShipmentProvider();
+      const result = await provider.registerTracking({
+        carrierCode: shipment.carrierCode,
+        trackingNumber: shipment.trackingNumber,
+        orderId: shipment.orderId
+      });
+
+      if (result?.externalId) {
+        await prisma.shipment.update({
+          where: { id: shipment.id },
+          data: { externalId: result.externalId }
+        });
+      }
+    } catch (err) {
+      console.error('[Shipment] Registration error:', err);
+      // Don't throw - registration can be retried later
+    }
+  }
+
+  /**
+   * Sync shipment status from provider
+   * Admin only
+   */
+  async syncShipment(shipmentId: string) {
+    const shipment = await prisma.shipment.findUnique({
+      where: { id: shipmentId }
+    });
+
+    if (!shipment) {
+      throw notFound('Kargo kaydı bulunamadı');
+    }
+
+    const provider = getShipmentProvider();
+    const ref = {
+      carrierCode: shipment.carrierCode,
+      trackingNumber: shipment.trackingNumber,
+      externalId: shipment.externalId
+    };
+
+    // Fetch current status and events
+    const [statusSnapshot, events] = await Promise.all([
+      provider.fetchCurrentStatus(ref).catch(() => null),
+      provider.fetchEvents(ref).catch(() => [])
+    ]);
+
+    // Update database in transaction
+    await prisma.$transaction(async (tx) => {
+      // Update shipment status
+      if (statusSnapshot?.status) {
+        await tx.shipment.update({
+          where: { id: shipment.id },
+          data: {
+            status: statusSnapshot.status as ShipmentStatus,
+            estimatedDeliveryAt: statusSnapshot.estimatedDeliveryAt || shipment.estimatedDeliveryAt,
+            lastSyncAt: new Date()
+          }
+        });
+      }
+
+      // Insert new events (use upsert to avoid duplicates)
+      if (Array.isArray(events)) {
+        for (const event of events) {
+          try {
+            await tx.shipmentEvent.upsert({
+              where: {
+                providerEventId: event.providerEventId || `${shipmentId}-${event.occurredAt.getTime()}`
+              },
+              update: {
+                // Update if provider sends updated data
+                status: event.status,
+                description: event.description,
+                location: event.location
+              },
+              create: {
+                shipmentId: shipment.id,
+                occurredAt: event.occurredAt,
+                status: event.status,
+                description: event.description,
+                location: event.location,
+                raw: event.raw as Prisma.InputJsonValue,
+                providerEventId: event.providerEventId || `${shipmentId}-${event.occurredAt.getTime()}`
+              }
+            });
+          } catch (err) {
+            console.error('[Shipment] Event upsert error:', err);
+            // Continue with other events
+          }
+        }
+      }
+    });
+
+    return { success: true, syncedAt: new Date() };
+  }
+
+  /**
+   * Handle webhook from shipping provider
+   */
   async handleWebhook(providerName: string, req: Request): Promise<boolean> {
     const provider = getShipmentProvider(providerName);
-    if (!(await provider.verifyWebhookSignature(req))) return false;
-    const payload = await provider.parseWebhookPayload(req);
-    if (!payload) return false;
 
-    // Resolve shipment record by external reference or tracking composite
-    const shp = await prisma.shipment.findFirst({
+    // Verify webhook signature
+    const isValid = await provider.verifyWebhookSignature(req);
+    if (!isValid) {
+      console.warn('[Shipment] Invalid webhook signature');
+      return false;
+    }
+
+    // Parse webhook payload
+    const payload = await provider.parseWebhookPayload(req);
+    if (!payload) {
+      console.warn('[Shipment] Invalid webhook payload');
+      return false;
+    }
+
+    // Find shipment by external ID or tracking composite
+    const shipment = await prisma.shipment.findFirst({
       where: {
         OR: [
           { externalId: payload.trackingRef.externalId || '' },
-          { carrierCode: payload.trackingRef.carrierCode, trackingNumber: payload.trackingRef.trackingNumber },
-        ],
-      },
+          {
+            carrierCode: payload.trackingRef.carrierCode,
+            trackingNumber: payload.trackingRef.trackingNumber
+          }
+        ]
+      }
     });
-    if (!shp) return false;
 
+    if (!shipment) {
+      console.warn('[Shipment] Webhook for unknown shipment:', payload.trackingRef);
+      return false;
+    }
+
+    // Update shipment and events in transaction
     await prisma.$transaction(async (tx) => {
+      // Update shipment status
       if (payload.status) {
-        await tx.shipment.update({ where: { id: shp.id }, data: { status: (payload.status as any), lastSyncAt: new Date() } });
+        await tx.shipment.update({
+          where: { id: shipment.id },
+          data: {
+            status: payload.status as ShipmentStatus,
+            lastSyncAt: new Date()
+          }
+        });
       }
-      for (const e of payload.events || []) {
+
+      // Insert new events
+      for (const event of payload.events || []) {
         try {
-          await tx.shipmentEvent.create({ data: { shipmentId: shp.id, occurredAt: e.occurredAt, status: e.status, description: e.description, location: e.location, raw: (e.raw as unknown as Prisma.InputJsonValue), providerEventId: e.providerEventId } });
-        } catch {}
+          await tx.shipmentEvent.upsert({
+            where: {
+              providerEventId: event.providerEventId || `${shipment.id}-${event.occurredAt.getTime()}`
+            },
+            update: {
+              status: event.status,
+              description: event.description,
+              location: event.location
+            },
+            create: {
+              shipmentId: shipment.id,
+              occurredAt: event.occurredAt,
+              status: event.status,
+              description: event.description,
+              location: event.location,
+              raw: event.raw as Prisma.InputJsonValue,
+              providerEventId: event.providerEventId || `${shipment.id}-${event.occurredAt.getTime()}`
+            }
+          });
+        } catch (err) {
+          console.error('[Shipment] Webhook event error:', err);
+        }
       }
     });
+
+    // TODO: Send notification to user about status change
+    void this.notifyUserAboutUpdate(shipment.id, payload.status);
+
     return true;
   }
+
+  /**
+   * Get list of supported carriers
+   */
+  getCarriersList() {
+    return env.SHIPMENT_CARRIERS as { code: string; name: string }[];
+  }
+
+  /**
+   * Verify tracking token (placeholder for future implementation)
+   */
+  private async verifyTrackingToken(shipmentId: string, token: string): Promise<boolean> {
+    // TODO: Implement token verification
+    // Option 1: Store hashed token in shipment table
+    // Option 2: JWT-based token with shipmentId claim
+    // Option 3: Check if token matches order email/phone hash
+    
+    // For now, always return true (insecure!)
+    console.warn('[Shipment] Token verification not implemented');
+    return true;
+  }
+
+  /**
+   * Notify user about shipment update
+   */
+  private async notifyUserAboutUpdate(shipmentId: string, newStatus?: string) {
+    // TODO: Implement notification
+    // - Email notification
+    // - SMS notification
+    // - In-app notification
+    console.log('[Shipment] TODO: Notify user about status change:', { shipmentId, newStatus });
+  }
 }
-
-

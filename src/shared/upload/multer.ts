@@ -48,6 +48,14 @@ const baseMulter = multer({
     fields: 5, // Limit form fields
     fieldNameSize: 100, // Limit field name size
     fieldSize: 1024 * 1024 // 1MB field size limit
+  } as {
+    fieldNameSize?: number;
+    fieldSize?: number;
+    fields?: number;
+    fileSize?: number;
+    files?: number;
+    parts?: number;
+    headerPairs?: number;
   },
   fileFilter: (_req: Request, file: MulterFile, cb: FileFilterCallback) => {
     // Additional security checks

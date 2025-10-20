@@ -6,4 +6,8 @@ export const updateOrderStatusSchema = z.object({
 
 export type UpdateOrderStatusDto = z.infer<typeof updateOrderStatusSchema>;
 
+export const cancelOrderSchema = z.object({
+  reason: z.string().min(3).max(500).optional(),
+});
+
 

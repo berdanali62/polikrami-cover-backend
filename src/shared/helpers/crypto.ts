@@ -1,10 +1,11 @@
 import argon2 from 'argon2';
 import { randomBytes } from 'crypto';
 
+const isTest = process.env.NODE_ENV === 'test';
 const ARGON2_OPTIONS: argon2.Options & { timeCost: number; memoryCost: number; parallelism: number } = {
   type: argon2.argon2id,
-  timeCost: 3,
-  memoryCost: 65536,
+  timeCost: isTest ? 2 : 3,
+  memoryCost: isTest ? 4096 : 65536,
   parallelism: 2,
 };
 

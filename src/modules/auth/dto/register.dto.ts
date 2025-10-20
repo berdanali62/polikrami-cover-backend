@@ -12,6 +12,9 @@ export const registerSchema = z.object({
   confirmPassword: z.string({ required_error: 'Lütfen şifrenizi tekrar giriniz.' }),
   name: z.string().min(2, { message: 'İsim en az 2 karakter olmalıdır.' }).max(100, { message: 'İsim en fazla 100 karakter olabilir.' }).optional(),
   role: z.enum(['user', 'designer'], { message: 'Geçersiz rol seçimi.' }).optional().default('user'),
+  acceptTerms: z.boolean().refine((v) => v === true, { message: 'Kullanım şartlarını kabul etmelisiniz.' }),
+  acceptPrivacy: z.boolean().refine((v) => v === true, { message: 'Gizlilik sözleşmesini kabul etmelisiniz.' }),
+  acceptRevenueShare: z.boolean().optional(),
 }).refine((data) => data.password === data.confirmPassword, {
   message: 'Şifreler eşleşmiyor. Lütfen aynı şifreyi tekrar giriniz.',
   path: ['confirmPassword'],

@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { OrderService } from '../service/order.service';
 import { env } from '../../../config/env';
-import { updateOrderStatusSchema, type UpdateOrderStatusDto } from '../dto/order.dto';
+import { updateOrderStatusSchema, type UpdateOrderStatusDto, cancelOrderSchema } from '../dto/order.dto';
 
 const service = new OrderService();
 
@@ -33,7 +33,8 @@ export async function updateOrderStatusTestController(req: Request, res: Respons
 export async function cancelOrderController(req: Request, res: Response) {
   const userId = req.user!.id;
   const { id } = req.params as { id: string };
-  const canceled = await service.cancel(userId, id);
+  const { reason } = cancelOrderSchema.parse(req.body);
+  const canceled = await service.cancel(userId, id, reason);
   res.status(200).json(serializeOrder(canceled));
 }
 

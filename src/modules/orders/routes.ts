@@ -4,7 +4,7 @@ import { asyncHandler } from '../../shared/helpers/asyncHandler';
 import { listMyOrdersController, getOrderController, updateOrderStatusTestController, cancelOrderController } from './controller/order.controller';
 import { validateParams, validateBody } from '../../middlewares/validation';
 import { z } from 'zod';
-import { updateOrderStatusSchema } from './dto/order.dto';
+import { updateOrderStatusSchema, cancelOrderSchema } from './dto/order.dto';
 
 const router = Router();
 
@@ -15,7 +15,7 @@ router.get('/:id', requireAuth, validateParams(idParam), asyncHandler(getOrderCo
 // Test amacıyla manuel durum güncelleme
 router.post('/:id/status', requireAuth, validateParams(idParam), validateBody(updateOrderStatusSchema), asyncHandler(updateOrderStatusTestController));
 // Sipariş iptali
-router.post('/:id/cancel', requireAuth, validateParams(idParam), asyncHandler(cancelOrderController));
+router.post('/:id/cancel', requireAuth, validateParams(idParam), validateBody(cancelOrderSchema), asyncHandler(cancelOrderController));
 
 export default router;
 

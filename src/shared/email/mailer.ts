@@ -7,10 +7,6 @@ export interface SendEmailParams {
   subject: string;
   html?: string;
   text?: string;
-  /**
-   * If true, send to the exact 'to' address ignoring EMAIL_REDIRECT_TO.
-   * Useful for user-facing confirmations in development.
-   */
   bypassRedirect?: boolean;
 }
 

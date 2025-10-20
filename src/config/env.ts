@@ -37,7 +37,7 @@ const schema = z.object({
   CSRF_SECRET: z.string().optional().default(''),
   ALLOWED_ORIGINS: z
     .string()
-    .default('http://localhost:5173,http://localhost:8080')
+    .default('http://localhost:5173,http://127.0.0.1:5173,http://localhost:8080,http://127.0.0.1:8080,http://localhost:3001,http://127.0.0.1:3001')
     .transform((s) => s.split(',').map((x) => x.trim()).filter(Boolean)),
   APP_URL: z.string().default('http://localhost:3000'),
   CDN_URL: z.string().optional().default(''),
@@ -74,6 +74,19 @@ const schema = z.object({
   SHIPPING_COST_CENTS: z.coerce.number().default(3000), // 30 TL default shipping cost
   PASSWORD_RESET_CODE_EXPIRE_MINUTES: z.coerce.number().default(10),
   EMAIL_VERIFY_CODE_EXPIRE_MINUTES: z.coerce.number().default(60),
+  PHONE_VERIFY_CODE_EXPIRE_MINUTES: z.coerce.number().default(10),
+  PHONE_VERIFY_PROVIDER: z.enum(['code', 'firebase']).default('code'),
+  SMS_PROVIDER: z.enum(['mock', 'twilio']).default('mock'),
+  TWILIO_ACCOUNT_SID: z.string().optional().default(''),
+  TWILIO_AUTH_TOKEN: z.string().optional().default(''),
+  TWILIO_FROM: z.string().optional().default(''),
+  // Firebase Admin (for phone verification via Firebase)
+  FIREBASE_PROJECT_ID: z.string().optional().default(''),
+  FIREBASE_CLIENT_EMAIL: z.string().optional().default(''),
+  FIREBASE_PRIVATE_KEY: z
+    .string()
+    .optional()
+    .default(''),
   // Email queue cleanup configuration
   EMAIL_QUEUE_CLEANUP_DAYS: z.coerce.number().default(30),
   EMAIL_QUEUE_FAILED_CLEANUP_HOURS: z.coerce.number().default(24),
