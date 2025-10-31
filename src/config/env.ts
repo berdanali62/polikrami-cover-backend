@@ -125,6 +125,21 @@ const schema = z.object({
         })
         .filter((v): v is { code: string; name: string } => v !== null)
     ),
+  // Business logic configuration
+  WELCOME_BONUS_CREDITS: z.coerce.number().default(500),
+  MAX_DRAFT_REVISIONS: z.coerce.number().default(3),
+  MAX_USER_ADDRESSES: z.coerce.number().default(10),
+  MAX_FAILED_LOGIN_ATTEMPTS: z.coerce.number().default(5),
+  LOGIN_LOCKOUT_WINDOW_MINUTES: z.coerce.number().default(10),
+  // Rate limiting configuration
+  RATE_LIMIT_GLOBAL_POINTS: z.coerce.number().default(60),
+  RATE_LIMIT_GLOBAL_DURATION: z.coerce.number().default(60),
+  RATE_LIMIT_EMAIL_VERIFICATION_POINTS: z.coerce.number().default(3),
+  RATE_LIMIT_EMAIL_VERIFICATION_DURATION: z.coerce.number().default(60),
+  RATE_LIMIT_PASSWORD_RESET_POINTS: z.coerce.number().default(3),
+  RATE_LIMIT_PASSWORD_RESET_DURATION: z.coerce.number().default(60),
+  RATE_LIMIT_PHONE_VERIFICATION_POINTS: z.coerce.number().default(5),
+  RATE_LIMIT_PHONE_VERIFICATION_DURATION: z.coerce.number().default(60),
 });
 
 export const env = schema.parse(process.env);

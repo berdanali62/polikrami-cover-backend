@@ -51,7 +51,7 @@ export async function createAddressController(req: Request, res: Response) {
     line1: data.line1,
     line2: data.line2,
     city: data.city as unknown as string,
-    district: data.district,
+    districtName: data.district, // Changed from district to districtName to match schema
     postalCode: data.postalCode,
     country: data.country,
     isDefault: data.isDefault,

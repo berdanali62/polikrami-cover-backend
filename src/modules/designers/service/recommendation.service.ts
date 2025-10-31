@@ -66,6 +66,15 @@ export async function getDesignerStats(): Promise<DesignerStats[]> {
   return stats;
 }
 
+// Basic designer listing for controller consumption
+export async function getDesignersBasic(): Promise<Array<{ id: string; name: string | null; email: string | null; profile: unknown }>> {
+  const designerUsers = await prisma.user.findMany({
+    where: { roles: { some: { role: { name: 'designer' } } } },
+    select: { id: true, name: true, email: true, profile: true }
+  });
+  return designerUsers;
+}
+
 export function buildRecommendedSlate(all: DesignerStats[], slateSize = 3): { slate: DesignerStats[]; rest: DesignerStats[] } {
   // define groups
   const topRated = [...all].sort((a, b) => wilsonLowerBound(b.ratingAvg, b.ratingCount) - wilsonLowerBound(a.ratingAvg, a.ratingCount));

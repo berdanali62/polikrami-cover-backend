@@ -79,6 +79,8 @@ model User {
   projectMemberships      ProjectMember[]
   drafts                  Draft[]                  @relation("DraftOwner")
   assignedDrafts          Draft[]                  @relation("DraftAssignedDesigner")
+  assignmentLogs          DraftAssignmentLog[]
+  assignmentAssignments   DraftAssignmentLog[]     @relation("AssignmentAssigner")
   CreditWallet            CreditWallet[]
   CreditTransaction       CreditTransaction[]
   AiJob                   AiJob[]
@@ -412,6 +414,41 @@ model OrganizationMember {
   @@id([organizationId, userId])
 }
 
+// Draft assignment tracking
+model DraftAssignmentLog {
+  id               String    @id @default(uuid())
+  draftId          String
+  designerId       String
+  assignedBy       String
+  action           String    // 'assigned', 'unassigned', 'reassigned'
+  reason           String?
+  previousDesignerId String?
+  timestamp        DateTime  @default(now())
+
+  draft    Draft @relation(fields: [draftId], references: [id])
+  designer User  @relation(fields: [designerId], references: [id])
+  assigner User  @relation("AssignmentAssigner", fields: [assignedBy], references: [id])
+
+  @@index([draftId])
+  @@index([designerId])
+  @@index([timestamp])
+}
+
+// Payment callback tracking
+model PaymentCallbackLog {
+  id          String   @id @default(uuid())
+  paymentId   String
+  status      String
+  amountCents Int?
+  signature   String?
+  timestamp   DateTime @default(now())
+
+  payment Payment @relation(fields: [paymentId], references: [id])
+
+  @@index([paymentId])
+  @@index([timestamp])
+}
+
 model Invitation {
   id             String    @id @default(uuid())
   organizationId String?
@@ -524,6 +561,7 @@ model Payment {
   createdAt         DateTime @default(now())
 
   order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  callbackLogs PaymentCallbackLog[]
 
   @@index([orderId])
 }
@@ -660,6 +698,7 @@ model Draft {
   messageCard    MessageCard?     @relation(fields: [messageCardId], references: [id])
   AiJob          AiJob[]
   GeneratedImage GeneratedImage[]
+  assignmentLogs DraftAssignmentLog[]
 
   @@index([userId])
   @@index([userId, createdAt])
@@ -765,6 +804,60 @@ model CreditTransaction {
   @@index([userId, createdAt])
 }
 
+// Location hierarchy for addresses and shipping
+model Province {
+  id         Int      @id @default(autoincrement())
+  name       String
+  alpha2Code String   @unique
+  towns      Town[]
+  addresses  Address[] @relation("ProvinceAddresses")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([name])
+}
+
+model Town {
+  id         Int      @id @default(autoincrement())
+  name       String
+  provinceId Int
+  province   Province @relation(fields: [provinceId], references: [id])
+  districts  District[]
+  addresses  Address[] @relation("TownAddresses")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([provinceId, name])
+  @@index([name])
+}
+
+model District {
+  id        Int     @id @default(autoincrement())
+  name      String
+  townId    Int
+  town      Town    @relation(fields: [townId], references: [id])
+  quarters  Quarter[]
+  addresses Address[] @relation("DistrictAddresses")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([townId, name])
+  @@index([name])
+}
+
+model Quarter {
+  id          Int      @id @default(autoincrement())
+  name        String
+  districtId  Int
+  district    District @relation(fields: [districtId], references: [id])
+  addresses   Address[] @relation("QuarterAddresses")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([districtId, name])
+  @@index([name])
+}
+
 // User saved addresses (max N per user enforced in service)
 model Address {
   id         String   @id @default(uuid())
@@ -775,7 +868,7 @@ model Address {
   line1      String
   line2      String?
   city       String
-  district   String?
+  districtName   String?
   postalCode String?
   country    String   @default("TR")
   isDefault  Boolean  @default(false)
@@ -784,8 +877,19 @@ model Address {
 
   user User @relation(fields: [userId], references: [id])
 
+  // Optional normalized location relations
+  provinceId Int?
+  townId     Int?
+  districtId Int?
+  quarterId  Int?
+  province   Province? @relation("ProvinceAddresses", fields: [provinceId], references: [id])
+  town       Town?     @relation("TownAddresses", fields: [townId], references: [id])
+  district   District? @relation("DistrictAddresses", fields: [districtId], references: [id])
+  quarter    Quarter?  @relation("QuarterAddresses", fields: [quarterId], references: [id])
+
   @@index([userId, isDefault])
   @@index([userId, createdAt])
+  @@index([provinceId, townId, districtId, quarterId])
 }
 
 // Likes for message cards (popular covers)
@@ -906,5 +1010,5 @@ enum ContactStatus {
   archived
 }
 
-// Migration:
+
 // npx prisma migrate dev --name add_contact_submission

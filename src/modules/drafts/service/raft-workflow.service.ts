@@ -5,6 +5,7 @@ import { DraftValidationService } from './draft-validation.service';
 import { NotificationService } from '../../../shared/services/notification.service';
 import { badRequest, forbidden } from '../../../shared/errors/ApiError';
 import { logger } from '../../../utils/logger';
+import { env } from '../../../config/env';
 
 interface WorkflowTransition {
   from: WorkflowStatus[];
@@ -13,8 +14,9 @@ interface WorkflowTransition {
   validator?: (draft: Draft) => Promise<boolean> | boolean;
 }
 
+// Deprecated typo file; keep class export name intact for compatibility
 export class DraftWorkflowService {
-  private readonly MAX_REVISIONS = 3;
+  private readonly MAX_REVISIONS = env.MAX_DRAFT_REVISIONS;
   
   private readonly transitions: ReadonlyMap<string, WorkflowTransition> = new Map<string, WorkflowTransition>([
     ['sendPreview', {

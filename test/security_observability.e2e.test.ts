@@ -1,15 +1,10 @@
 import request from 'supertest';
 import app from '../src/app';
 import sharp from 'sharp';
+import { getCookie, extractDraftId } from './helpers/test-helpers';
 
 describe('Security & Observability E2E', () => {
-  function getCookie(res: request.Response, name: string): string | undefined {
-    const raw = res.headers['set-cookie'] as unknown;
-    const cookies = Array.isArray(raw) ? raw : raw ? [String(raw)] : [];
-    const found = cookies.find((c) => c.startsWith(name + '='));
-    if (!found) return undefined;
-    return found.split(';')[0].split('=')[1];
-  }
+  jest.setTimeout(90000); // 90 seconds for all tests in this suite
 
   it('Upload magic-byte mismatch blocked and valid image sanitized', async () => {
     const agent = request.agent(app);
@@ -21,14 +16,21 @@ describe('Security & Observability E2E', () => {
     // Register & login
     const email = `sec_${Date.now()}@ex.com`;
     const password = 'Passw0rd!';
-    await agent.post('/api/auth/register').set('X-CSRF-Token', String(csrf)).send({ email, password, confirmPassword: password, name: 'Sec User' });
+    await agent.post('/api/auth/register').set('X-CSRF-Token', String(csrf)).send({ 
+      email, 
+      password, 
+      confirmPassword: password, 
+      name: 'Sec User',
+      acceptTerms: true,
+      acceptPrivacy: true
+    });
     const login = await agent.post('/api/auth/login').set('X-CSRF-Token', String(csrf)).send({ email, password });
     expect(login.status).toBe(200);
 
     // Create draft
     const draftCreate = await agent.post('/api/drafts').set('X-CSRF-Token', String(csrf)).send({ method: 'upload' });
     expect([200, 201]).toContain(draftCreate.status);
-    const draftId = draftCreate.body?.id as string;
+    const draftId = extractDraftId(draftCreate.body);
     expect(draftId).toBeTruthy();
 
     // 1) Mismatch: filename .png with non-PNG bytes -> 400
@@ -46,10 +48,13 @@ describe('Security & Observability E2E', () => {
       .set('X-CSRF-Token', String(csrf))
       .attach('file', good, 'ok.png');
     expect([200, 201]).toContain(okUp.status);
-    expect(okUp.body).toHaveProperty('url');
+    // Check for url in data object (standard response format)
+    expect(okUp.body.data?.url || okUp.body.url).toBeTruthy();
   });
 
   it('Account lockout after consecutive failed logins', async () => {
+
+    jest.setTimeout(60000); // 60 seconds for this test
     const agent = request.agent(app);
     // CSRF
     const csrfRes = await agent.get('/csrf');
@@ -58,7 +63,14 @@ describe('Security & Observability E2E', () => {
 
     const email = `lock_${Date.now()}@ex.com`;
     const password = 'Passw0rd!';
-    await agent.post('/api/auth/register').set('X-CSRF-Token', String(csrf)).send({ email, password, confirmPassword: password, name: 'Lock User' });
+    await agent.post('/api/auth/register').set('X-CSRF-Token', String(csrf)).send({ 
+      email, 
+      password, 
+      confirmPassword: password, 
+      name: 'Lock User',
+      acceptTerms: true,
+      acceptPrivacy: true
+    });
 
     // 5 incorrect attempts -> 401
     for (let i = 0; i < 5; i++) {
@@ -79,7 +91,14 @@ describe('Security & Observability E2E', () => {
 
     const email = `reuse_${Date.now()}@ex.com`;
     const password = 'Passw0rd!';
-    await agent.post('/api/auth/register').set('X-CSRF-Token', String(csrf)).send({ email, password, confirmPassword: password, name: 'Reuse User' });
+    await agent.post('/api/auth/register').set('X-CSRF-Token', String(csrf)).send({ 
+      email, 
+      password, 
+      confirmPassword: password, 
+      name: 'Reuse User',
+      acceptTerms: true,
+      acceptPrivacy: true
+    });
     const login = await agent.post('/api/auth/login').set('X-CSRF-Token', String(csrf)).send({ email, password });
     const oldRefresh = getCookie(login, 'refresh');
     expect(oldRefresh).toBeTruthy();

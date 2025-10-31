@@ -45,7 +45,14 @@ describe('Designers Reviews & Sorting E2E', () => {
     // Create reviewer user via auth
     const email = `rev_${Date.now()}@example.com`;
     const password = 'Passw0rd!';
-    await agent.post('/api/auth/register').set('X-CSRF-Token', String(csrf)).send({ email, password, confirmPassword: password, name: 'Reviewer' });
+    await agent.post('/api/auth/register').set('X-CSRF-Token', String(csrf)).send({ 
+      email, 
+      password, 
+      confirmPassword: password, 
+      name: 'Reviewer',
+      acceptTerms: true,
+      acceptPrivacy: true
+    });
     const login = await agent.post('/api/auth/login').set('X-CSRF-Token', String(csrf)).send({ email, password });
     expect(login.status).toBe(200);
     reviewerToken = login.body?.accessToken;
@@ -113,7 +120,7 @@ describe('Designers Reviews & Sorting E2E', () => {
     const list = res.body.designers as Array<{ id: string; recentJobs30d: number }>;
     expect(Array.isArray(list)).toBe(true);
     if (list.length >= 1) {
-      // our seeded A should have at least 3
+      
       const a = list.find((x) => x.id === designerAId);
       expect(a?.recentJobs30d ?? 0).toBeGreaterThanOrEqual(3);
     }

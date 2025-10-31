@@ -371,6 +371,21 @@ export class PaymentService {
     billingAddress?: any;
     installments?: number;
   }) {
+    // Validate payment request
+    const { PaymentValidator } = await import('../validation/payment-validator');
+    const validator = new PaymentValidator(prisma);
+    
+    const validation = await validator.validatePaymentInitiation({
+      orderId: params.orderId,
+      amountCents: 0, // Will be set from order
+      currency: 'TRY',
+      paymentMethod: params.paymentMethod,
+      userId: '' // Will be set from order
+    });
+    
+    if (!validation.isValid) {
+      throw badRequest(`Payment validation failed: ${validation.errors.join(', ')}`);
+    }
     // Get order details
     const order = await prisma.order.findUnique({
       where: { id: params.orderId },

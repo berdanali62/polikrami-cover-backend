@@ -1,0 +1,37 @@
+import { UpdateProfileDto } from '../dto/profile.dto';
+import { Prisma } from '@prisma/client';
+export declare function getUserWithProfile(userId: string): Promise<{
+    email: string;
+    password: string;
+    name: string | null;
+    id: string;
+    avatarUrl: string | null;
+    emailVerifiedAt: Date | null;
+    termsAcceptedAt: Date | null;
+    privacyAcceptedAt: Date | null;
+    createdAt: Date;
+    updatedAt: Date;
+} | null>;
+export declare function upsertUserProfile(userId: string, data: UpdateProfileDto): Promise<{
+    userId: string;
+    phone: string | null;
+    phoneVerifiedAt: Date | null;
+    company: string | null;
+    address1: string | null;
+    address2: string | null;
+    city: string | null;
+    state: string | null;
+    postalCode: string | null;
+    country: string | null;
+    preferences: Prisma.JsonValue | null;
+    isArtist: boolean | null;
+    specialization: string | null;
+    revenueShareAcceptedAt: Date | null;
+    artistBio: string | null;
+    isAvailable: boolean;
+    iban: string | null;
+    behanceUrl: string | null;
+    dribbbleUrl: string | null;
+    linkedinUrl: string | null;
+    websiteUrl: string | null;
+} | null>;

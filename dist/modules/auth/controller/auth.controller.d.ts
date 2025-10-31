@@ -1,0 +1,10 @@
+import { Request, Response } from 'express';
+export declare function registerController(req: Request, res: Response): Promise<void>;
+export declare function loginController(req: Request, res: Response): Promise<void>;
+export declare function refreshController(req: Request, res: Response): Promise<void>;
+export declare function logoutController(_req: Request, res: Response): Promise<void>;
+export declare function forgotPasswordController(req: Request, res: Response): Promise<void>;
+export declare function resetPasswordController(req: Request, res: Response): Promise<void>;
+export declare function verifyResetCodeController(req: Request, res: Response): Promise<void>;
+export declare function resendVerificationController(req: Request, res: Response): Promise<void>;
+export declare function verifyEmailController(req: Request, res: Response): Promise<void>;

@@ -153,25 +153,21 @@ export class DraftValidationService {
     contentType?: string,
     fileSize?: number
   ): Promise<void> {
-    const allowedTypes = [
-      'image/png',
-      'image/jpeg', 
-      'image/webp',
-      'application/pdf'
-    ];
+    const { env } = await import('../../../config/env');
     
-    if (contentType && !allowedTypes.includes(contentType)) {
+    if (contentType && !env.UPLOAD_ALLOWED_MIME.includes(contentType)) {
       throw badRequest(
-        `Invalid file type. Allowed types: ${allowedTypes.join(', ')}`
+        `Invalid file type. Allowed types: ${env.UPLOAD_ALLOWED_MIME.join(', ')}`
       );
     }
     
     if (fileSize) {
-      const maxSizeMB = 100;
-      const maxSizeBytes = maxSizeMB * 1024 * 1024;
+      const maxSizeBytes = env.UPLOAD_MAX_SIZE_MB * 1024 * 1024;
       
       if (fileSize > maxSizeBytes) {
-        throw badRequest(`File size exceeds maximum limit of ${maxSizeMB}MB`);
+        throw badRequest(
+          `File size exceeds maximum limit of ${env.UPLOAD_MAX_SIZE_MB}MB`
+        );
       }
     }
   }

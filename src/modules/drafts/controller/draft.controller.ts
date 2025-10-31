@@ -3,6 +3,7 @@ import { DraftService } from '../service/draft.service';
 import { DraftWorkflowService } from '../service/draft-workflow.service';
 import { badRequest } from '../../../shared/errors/ApiError';
 import { logger } from '../../../utils/logger';
+import { env } from '../../../config/env';
 
 export class DraftController {
   constructor(
@@ -133,8 +134,8 @@ export class DraftController {
       data: draft,
       meta: {
         revisionCount: draft.revisionCount,
-        maxRevisions: draft.maxRevisions || 3,
-        remainingRevisions: Math.max(0, (draft.maxRevisions || 3) - (draft.revisionCount || 0))
+        maxRevisions: draft.maxRevisions || env.MAX_DRAFT_REVISIONS,
+        remainingRevisions: Math.max(0, (draft.maxRevisions || env.MAX_DRAFT_REVISIONS) - (draft.revisionCount || 0))
       }
     });
   }

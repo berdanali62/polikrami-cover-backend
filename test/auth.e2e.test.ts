@@ -26,7 +26,14 @@ describe('Auth E2E', () => {
     const reg = await agent
       .post('/api/auth/register')
       .set('X-CSRF-Token', String(csrf))
-      .send({ email, password, confirmPassword: password, name: 'E2E User' });
+      .send({ 
+        email, 
+        password, 
+        confirmPassword: password, 
+        name: 'E2E User',
+        acceptTerms: true,
+        acceptPrivacy: true
+      });
     expect([200, 201, 409]).toContain(reg.status); // allow reruns (409 email exists)
 
     // 3) Login

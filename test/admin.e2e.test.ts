@@ -28,7 +28,14 @@ describe('Admin and additional modules E2E', () => {
     const reg = await agent
       .post('/api/auth/register')
       .set('X-CSRF-Token', String(csrf))
-      .send({ email, password, confirmPassword: password, name: 'E2E Admin User' });
+      .send({ 
+        email, 
+        password, 
+        confirmPassword: password, 
+        name: 'E2E Admin User',
+        acceptTerms: true,
+        acceptPrivacy: true
+      });
     expect([200, 201, 409]).toContain(reg.status);
 
     const login = await agent

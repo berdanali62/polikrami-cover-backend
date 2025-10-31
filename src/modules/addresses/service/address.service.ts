@@ -1,8 +1,6 @@
 import { prisma } from '../../../config/database';
 import { notFound, badRequest, forbidden } from '../../../shared/errors/ApiError';
-
-// Maximum addresses per user
-const MAX_ADDRESSES = 5;
+import { env } from '../../../config/env';
 
 interface CreateAddressData {
   userId: string;
@@ -12,7 +10,7 @@ interface CreateAddressData {
   line1: string;
   line2?: string;
   city: string;
-  district?: string;
+  districtName?: string; // Changed from district to districtName (schema field)
   postalCode?: string;
   country: string;
   isDefault?: boolean;
@@ -27,7 +25,7 @@ interface UpdateAddressData {
   line1?: string;
   line2?: string;
   city?: string;
-  district?: string;
+  districtName?: string; // Changed from district to districtName (schema field)
   postalCode?: string;
   country?: string;
   isDefault?: boolean;
@@ -78,9 +76,9 @@ export class AddressService {
       where: { userId }
     });
 
-    if (count >= MAX_ADDRESSES) {
+    if (count >= env.MAX_USER_ADDRESSES) {
       throw badRequest(
-        `En fazla ${MAX_ADDRESSES} adres ekleyebilirsiniz. ` +
+        `En fazla ${env.MAX_USER_ADDRESSES} adres ekleyebilirsiniz. ` +
         `Yeni adres eklemek için mevcut bir adresi silin.`
       );
     }

@@ -59,7 +59,8 @@ export async function logoutController(_req: Request, res: Response) {
     }
   } catch {}
   res.clearCookie('access', cookieClearOpts());
-  res.clearCookie('refresh', { ...cookieClearOpts(), path: '/api/auth/refresh' });
+  // Align cookie path with versioned route mount
+  res.clearCookie('refresh', { ...cookieClearOpts(), path: '/api/v1/auth/refresh' });
   res.clearCookie('remember', cookieClearOpts());
   res.status(200).json({ ok: true });
 }

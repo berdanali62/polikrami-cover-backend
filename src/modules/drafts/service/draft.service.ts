@@ -253,7 +253,7 @@ export class DraftService {
     const receiverName = address.fullName || '';
     const receiverPhone = address.phone || '';
     const city = address.city;
-    const district = address.district || '';
+    const district = address.districtName || ''; // Changed from address.district to address.districtName (schema field)
     const addressText = [address.line1, address.line2].filter(Boolean).join(' ');
 
     const snapshot: SetShippingInput = {
@@ -337,8 +337,11 @@ export class DraftService {
     // Calculate total price
     const totalCents = this.calculateTotalPrice(draft);
     
-    // Create order in transaction
-    const order = await prisma.$transaction(async (tx) => {
+    // Create order in transaction with proper isolation
+    const { TransactionManager, TransactionConfig } = await import('../../../config/transaction');
+    const transactionManager = new TransactionManager(prisma);
+    
+    const order = await transactionManager.executeWithIsolation(async (tx) => {
       // Create order
       const createdOrder = await tx.order.create({
         data: {
@@ -382,7 +385,7 @@ export class DraftService {
         // tolerate invoice create failure; payment flow may create later
       }
       return createdOrder;
-    });
+    }, TransactionConfig.DRAFT_COMMIT);
     
     // Post-commit actions (non-blocking)
     this.handlePostCommit(draft, order);
@@ -406,10 +409,19 @@ export class DraftService {
   // Private helper methods
   
   private canCommit(draft: DraftWithRelations): boolean {
-    // Check required fields
-    if (!draft.messageCardId) return false;
-    if (!draft.shipping) return false;
+    // Check if already committed
     if (draft.committedAt) return false;
+    
+    // Check required fields with clear error messages
+    const missingFields: string[] = [];
+    if (!draft.messageCardId) missingFields.push('message card');
+    if (!draft.shipping) missingFields.push('shipping information');
+    
+    if (missingFields.length > 0) {
+      throw badRequest(
+        `Cannot commit draft. Missing required fields: ${missingFields.join(', ')}`
+      );
+    }
     
     // Check workflow status if artist method
     if (draft.method === 'artist') {

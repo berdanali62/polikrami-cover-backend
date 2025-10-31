@@ -18,14 +18,26 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
 
 export function requireRole(role: string) {
   return async function roleCheck(req: Request, res: Response, next: NextFunction) {
-    // Compose with requireAuth properly to avoid double responses
-    requireAuth(req, res, (err?: unknown) => {
-      if (err) return next(err as any);
-      if (!req.user?.role || req.user.role !== role) {
-        return res.status(403).json({ message: 'Forbidden' });
-      }
-      next();
+    // First ensure user is authenticated
+    let authCompleted = false;
+    await new Promise<void>((resolve) => {
+      requireAuth(req, res, () => {
+        authCompleted = true;
+        resolve();
+      });
     });
+    
+    // If requireAuth sent a response, don't proceed
+    if (res.headersSent) {
+      return;
+    }
+    
+    // Check role
+    if (!req.user?.role || req.user.role !== role) {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+    
+    next();
   };
 }
 

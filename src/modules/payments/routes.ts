@@ -19,6 +19,7 @@ import {
   paymentCallbackSchema,
   refundPaymentSchema
 } from './dto/payment.dto';
+import { verifyPaymentWebhook } from './middlewares/webhookSignature';
 
 const router = Router();
 
@@ -36,7 +37,8 @@ router.get('/:paymentId/status', requireAuth, validateParams(paymentIdParam), as
 router.post('/refund', requireAuth, validateBody(refundPaymentSchema), asyncHandler(refundPaymentController));
 
 // Public callback endpoint (called by payment providers)
-router.post('/callback', validateBody(paymentCallbackSchema), asyncHandler(paymentCallbackController));
+// ⚠️ CRITICAL: Webhook signature verification added for security
+router.post('/callback', verifyPaymentWebhook, validateBody(paymentCallbackSchema), asyncHandler(paymentCallbackController));
 
 // Mock payment endpoints for testing (only in development)
 router.get('/mock/success', asyncHandler(mockPaymentSuccessController));

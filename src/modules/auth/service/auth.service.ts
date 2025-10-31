@@ -16,24 +16,49 @@ export class AuthService {
       throw conflict('Email already in use');
     }
     const password = await hashPassword(params.password);
-    const user = await createUser({ email: params.email, password, name: params.name, role: params.role });
-    // Store acceptance timestamps on profile/user (best-effort)
-    try {
-      await prisma.user.update({
-        where: { id: user.id },
+    
+    // Transaction: Create user, update acceptance timestamps, create profile, grant credits
+    const user = await prisma.$transaction(async (tx) => {
+      const newUser = await createUser({ email: params.email, password, name: params.name, role: params.role });
+      
+      // Update acceptance timestamps
+      await tx.user.update({
+        where: { id: newUser.id },
         data: {
           termsAcceptedAt: params.acceptTerms ? new Date() : undefined,
           privacyAcceptedAt: params.acceptPrivacy ? new Date() : undefined,
         },
       });
+      
+      // Create profile if designer and revenue share accepted
       if (params.role === 'designer' && params.acceptRevenueShare) {
-        // Tolerate schema differences in tests: set subset of profile fields if columns exist
-        try {
-          await prisma.userProfile.upsert({ where: { userId: user.id }, update: { revenueShareAcceptedAt: new Date() }, create: { userId: user.id, revenueShareAcceptedAt: new Date() } });
-        } catch {}
+        await tx.userProfile.upsert({ 
+          where: { userId: newUser.id }, 
+          update: { revenueShareAcceptedAt: new Date() }, 
+          create: { userId: newUser.id, revenueShareAcceptedAt: new Date() } 
+        });
       }
-    } catch {}
-    // Generate email verification token
+      
+      // Grant welcome bonus credits
+      await tx.creditWallet.upsert({ 
+        where: { userId: newUser.id }, 
+        update: { balance: { increment: env.WELCOME_BONUS_CREDITS } }, 
+        create: { userId: newUser.id, balance: env.WELCOME_BONUS_CREDITS } 
+      });
+      
+      await tx.creditTransaction.create({ 
+        data: { 
+          userId: newUser.id, 
+          delta: env.WELCOME_BONUS_CREDITS, 
+          type: 'gift', 
+          note: 'welcome-bonus' 
+        } 
+      });
+      
+      return newUser;
+    });
+    
+    // Generate email verification token (outside transaction to avoid blocking)
     try {
       const code = randomUUID();
       const expiresAt = new Date(Date.now() + 1000 * 60 * env.EMAIL_VERIFY_CODE_EXPIRE_MINUTES);
@@ -44,17 +69,9 @@ export class AuthService {
     } catch (error) {
       const { logger } = await import('../../../utils/logger');
       logger.error({ error, email: params.email }, 'Failed to send email verification');
+      // Don't throw - user is created, they can request another verification email
     }
-    // Seed initial credits (500)
-    try {
-      await prisma.$transaction([
-        prisma.creditWallet.upsert({ where: { userId: user.id }, update: { balance: { increment: 500 } }, create: { userId: user.id, balance: 500 } }),
-        prisma.creditTransaction.create({ data: { userId: user.id, delta: 500, type: 'gift', note: 'welcome-bonus' } })
-      ]);
-    } catch (e) {
-      const { logger } = await import('../../../utils/logger');
-      logger.error({ e, userId: user.id }, 'Failed to grant welcome credits');
-    }
+    
     return { id: user.id, email: user.email, name: user.name };
   }
 

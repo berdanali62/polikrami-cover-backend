@@ -1,0 +1,258 @@
+import * as Sentry from '@sentry/node';
+import { env } from '../../config/env';
+
+/**
+ * Sentry configuration and error tracking
+ */
+export class SentryLogger {
+  private static initialized = false;
+
+  static initialize() {
+    if (this.initialized) return;
+
+    Sentry.init({
+      dsn: env.SENTRY_DSN,
+      environment: env.NODE_ENV,
+      tracesSampleRate: env.NODE_ENV === 'production' ? 0.1 : 1.0,
+      profilesSampleRate: env.NODE_ENV === 'production' ? 0.1 : 1.0,
+      integrations: [
+        new Sentry.Integrations.Http({ tracing: true }),
+        new Sentry.Integrations.Express({ app: undefined }),
+        new Sentry.Integrations.Prisma({ client: undefined }),
+      ],
+      beforeSend(event) {
+        // Filter out sensitive data
+        if (event.request?.data) {
+          event.request.data = this.sanitizeData(event.request.data);
+        }
+        
+        if (event.extra) {
+          event.extra = this.sanitizeData(event.extra);
+        }
+        
+        return event;
+      },
+    });
+
+    this.initialized = true;
+  }
+
+  /**
+   * Capture error with context
+   */
+  static captureError(error: Error, context?: Record<string, any>) {
+    Sentry.withScope((scope) => {
+      if (context) {
+        Object.keys(context).forEach(key => {
+          scope.setContext(key, context[key]);
+        });
+      }
+      
+      Sentry.captureException(error);
+    });
+  }
+
+  /**
+   * Capture message with level
+   */
+  static captureMessage(message: string, level: 'info' | 'warning' | 'error' = 'info') {
+    Sentry.captureMessage(message, level);
+  }
+
+  /**
+   * Add breadcrumb for debugging
+   */
+  static addBreadcrumb(message: string, category?: string, data?: Record<string, any>) {
+    Sentry.addBreadcrumb({
+      message,
+      category: category || 'default',
+      data,
+      level: 'info',
+      timestamp: Date.now() / 1000,
+    });
+  }
+
+  /**
+   * Set user context
+   */
+  static setUser(user: { id: string; email?: string; role?: string }) {
+    Sentry.setUser(user);
+  }
+
+  /**
+   * Set transaction context
+   */
+  static setTransaction(transaction: string) {
+    Sentry.setTag('transaction', transaction);
+  }
+
+  /**
+   * Set custom tags
+   */
+  static setTags(tags: Record<string, string>) {
+    Object.keys(tags).forEach(key => {
+      Sentry.setTag(key, tags[key]);
+    });
+  }
+
+  /**
+   * Performance monitoring
+   */
+  static startTransaction(name: string, op: string) {
+    return Sentry.startTransaction({
+      name,
+      op,
+    });
+  }
+
+  /**
+   * Sanitize sensitive data
+   */
+  private static sanitizeData(data: any): any {
+    if (typeof data !== 'object' || data === null) {
+      return data;
+    }
+
+    if (Array.isArray(data)) {
+      return data.map(item => this.sanitizeData(item));
+    }
+
+    const sanitized: any = {};
+    const sensitiveKeys = [
+      'password', 'token', 'secret', 'key', 'auth', 'authorization',
+      'cardNumber', 'cvv', 'cvc', 'ssn', 'socialSecurityNumber',
+      'creditCard', 'bankAccount', 'routingNumber'
+    ];
+
+    Object.keys(data).forEach(key => {
+      const lowerKey = key.toLowerCase();
+      const isSensitive = sensitiveKeys.some(sensitive => 
+        lowerKey.includes(sensitive)
+      );
+
+      if (isSensitive) {
+        sanitized[key] = '[REDACTED]';
+      } else if (typeof data[key] === 'object') {
+        sanitized[key] = this.sanitizeData(data[key]);
+      } else {
+        sanitized[key] = data[key];
+      }
+    });
+
+    return sanitized;
+  }
+}
+
+/**
+ * Error logging decorator
+ */
+export function logError(target: any, propertyName: string, descriptor: PropertyDescriptor) {
+  const method = descriptor.value;
+
+  descriptor.value = async function (...args: any[]) {
+    try {
+      return await method.apply(this, args);
+    } catch (error) {
+      SentryLogger.captureError(error as Error, {
+        method: propertyName,
+        class: target.constructor.name,
+        args: SentryLogger.sanitizeData(args),
+      });
+      throw error;
+    }
+  };
+}
+
+/**
+ * Performance monitoring decorator
+ */
+export function monitorPerformance(operationName: string) {
+  return function (target: any, propertyName: string, descriptor: PropertyDescriptor) {
+    const method = descriptor.value;
+
+    descriptor.value = async function (...args: any[]) {
+      const transaction = SentryLogger.startTransaction(
+        `${target.constructor.name}.${propertyName}`,
+        operationName
+      );
+
+      try {
+        const result = await method.apply(this, args);
+        transaction.setStatus('ok');
+        return result;
+      } catch (error) {
+        transaction.setStatus('internal_error');
+        SentryLogger.captureError(error as Error, {
+          method: propertyName,
+          class: target.constructor.name,
+        });
+        throw error;
+      } finally {
+        transaction.finish();
+      }
+    };
+  };
+}
+
+/**
+ * Express middleware for Sentry
+ */
+export const sentryMiddleware = {
+  requestHandler: Sentry.requestHandler(),
+  tracingHandler: Sentry.tracingHandler(),
+  errorHandler: Sentry.errorHandler(),
+};
+
+/**
+ * Custom error types for better categorization
+ */
+export class BusinessLogicError extends Error {
+  constructor(message: string, public code: string, public context?: Record<string, any>) {
+    super(message);
+    this.name = 'BusinessLogicError';
+  }
+}
+
+export class SecurityError extends Error {
+  constructor(message: string, public code: string, public context?: Record<string, any>) {
+    super(message);
+    this.name = 'SecurityError';
+  }
+}
+
+export class PaymentError extends Error {
+  constructor(message: string, public code: string, public context?: Record<string, any>) {
+    super(message);
+    this.name = 'PaymentError';
+  }
+}
+
+/**
+ * Error handler for different error types
+ */
+export function handleError(error: Error, context?: Record<string, any>) {
+  if (error instanceof BusinessLogicError) {
+    SentryLogger.captureError(error, {
+      ...context,
+      errorType: 'business_logic',
+      errorCode: error.code,
+    });
+  } else if (error instanceof SecurityError) {
+    SentryLogger.captureError(error, {
+      ...context,
+      errorType: 'security',
+      errorCode: error.code,
+    });
+  } else if (error instanceof PaymentError) {
+    SentryLogger.captureError(error, {
+      ...context,
+      errorType: 'payment',
+      errorCode: error.code,
+    });
+  } else {
+    SentryLogger.captureError(error, {
+      ...context,
+      errorType: 'unknown',
+    });
+  }
+}

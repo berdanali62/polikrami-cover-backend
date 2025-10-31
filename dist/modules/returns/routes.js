@@ -1,0 +1,15 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const asyncHandler_1 = require("../../shared/helpers/asyncHandler");
+const auth_1 = require("../../middlewares/auth");
+const validation_1 = require("../../middlewares/validation");
+const returns_controller_1 = require("./controller/returns.controller");
+const returns_dto_1 = require("./dto/returns.dto");
+const router = (0, express_1.Router)();
+const authMw = (req, res, next) => { void (0, auth_1.requireAuth)(req, res, next); };
+const adminMw = (req, res, next) => { void (0, auth_1.requireRole)('admin')(req, res, next); };
+router.get('/', authMw, (0, asyncHandler_1.asyncHandler)(returns_controller_1.listMyReturnsController));
+router.post('/', authMw, (0, validation_1.validateBody)(returns_dto_1.createReturnSchema), (0, asyncHandler_1.asyncHandler)(returns_controller_1.createReturnController));
+router.put('/:id/status', adminMw, (0, validation_1.validateParams)(returns_dto_1.returnParamSchema), (0, validation_1.validateBody)(returns_dto_1.updateReturnStatusSchema), (0, asyncHandler_1.asyncHandler)(returns_controller_1.updateReturnStatusController));
+exports.default = router;

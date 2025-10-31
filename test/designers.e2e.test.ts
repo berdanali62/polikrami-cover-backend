@@ -23,7 +23,14 @@ describe('Designers E2E', () => {
     const email = `e2e_des_${Date.now()}@example.com`;
     const password = 'Passw0rd!';
     // register or login
-    const reg = await agent.post('/api/auth/register').set('X-CSRF-Token', String(csrf)).send({ email, password, confirmPassword: password, name: 'E2E Des' });
+    const reg = await agent.post('/api/auth/register').set('X-CSRF-Token', String(csrf)).send({ 
+      email, 
+      password, 
+      confirmPassword: password, 
+      name: 'E2E Des',
+      acceptTerms: true,
+      acceptPrivacy: true
+    });
     expect([200,201,409]).toContain(reg.status);
     const login = await agent.post('/api/auth/login').set('X-CSRF-Token', String(csrf)).send({ email, password });
     expect(login.status).toBe(200);

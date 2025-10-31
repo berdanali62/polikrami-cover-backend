@@ -1,0 +1,36 @@
+import { Request, Response } from 'express';
+import { DraftService } from '../service/draft.service';
+import { DraftWorkflowService } from '../service/draft-workflow.service';
+export declare class DraftController {
+    private readonly draftService;
+    private readonly workflowService;
+    constructor(draftService?: DraftService, workflowService?: DraftWorkflowService);
+    create(req: Request, res: Response): Promise<void>;
+    list(req: Request, res: Response): Promise<void>;
+    get(req: Request, res: Response): Promise<void>;
+    update(req: Request, res: Response): Promise<void>;
+    getUploadUrl(req: Request, res: Response): Promise<void>;
+    uploadFile(req: Request, res: Response): Promise<void>;
+    setMessageCard(req: Request, res: Response): Promise<void>;
+    setShipping(req: Request, res: Response): Promise<void>;
+    setShippingFromAddress(req: Request, res: Response): Promise<void>;
+    setBillingAddress(req: Request, res: Response): Promise<void>;
+    assignDesigner(req: Request, res: Response): Promise<void>;
+    commit(req: Request, res: Response): Promise<void>;
+    sendPreview(req: Request, res: Response): Promise<void>;
+    requestRevision(req: Request, res: Response): Promise<void>;
+    approve(req: Request, res: Response): Promise<void>;
+    cancel(req: Request, res: Response): Promise<void>;
+    getWorkflowHistory(req: Request, res: Response): Promise<void>;
+    getRevisionDetails(req: Request, res: Response): Promise<void>;
+}
+export declare const createDraftController: (req: Request, res: Response) => Promise<void>;
+export declare const getMyDraftsController: (req: Request, res: Response) => Promise<void>;
+export declare const getDraftController: (req: Request, res: Response) => Promise<void>;
+export declare const updateDraftController: (req: Request, res: Response) => Promise<void>;
+export declare const uploadPresignController: (req: Request, res: Response) => Promise<void>;
+export declare const uploadFileController: (req: Request, res: Response) => Promise<void>;
+export declare const setMessageCardController: (req: Request, res: Response) => Promise<void>;
+export declare const setShippingController: (req: Request, res: Response) => Promise<void>;
+export declare const commitDraftController: (req: Request, res: Response) => Promise<void>;
+export declare const assignDesignerController: (req: Request, res: Response) => Promise<void>;

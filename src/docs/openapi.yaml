@@ -1,219 +1,1194 @@
 openapi: 3.0.3
 info:
-  title: CoverPolikrami API
-  version: 0.1.0
+  title: Polikrami Cover API
+  description: |
+    # 🎨 Polikrami Cover - E-Ticaret & Özel Tasarım API'si
+    
+    **Versiyon:** 1.0.0  
+    **Son Güncelleme:** 30 Ekim 2025  
+    **Lisans:** Proprietary
+    
+    ## 📖 Genel Bakış
+    
+    Polikrami Cover API, özel tasarlanmış kağıt ürünler (özel mesaj kartları, kapak tasarımları) için eksiksiz bir e-ticaret deneyimi sağlar. API şunları destekler:
+    
+    - 🎨 **Özel Tasarım İş Akışları:** Upload, AI-generated veya sanatçı destekli tasarımlar
+    - 👥 **Kullanıcı & Rol Yönetimi:** Customer, Designer ve Admin rolleri
+    - 💳 **Ödeme Entegrasyonu:** Iyzico ve çoklu ödeme yöntemleri
+    - 📦 **Kargo Takibi:** Gerçek zamanlı kargo durumu ve webhook entegrasyonları
+    - 🤖 **AI Üretimi:** Stability AI ile otomatik tasarım oluşturma
+    - 💰 **Kredi Sistemi:** Sanal cüzdan ve transaction yönetimi
+    
+    ## 🔐 Güvenlik
+    
+    - **JWT Authentication:** Access token (15 dakika) + Refresh token (30 gün)
+    - **CSRF Protection:** Tüm state-changing operasyonlarda gerekli
+    - **Rate Limiting:** Endpoint bazında farklı limitler
+    - **HTTPS Only:** Production'da zorunlu
+    
+    ## 🚀 Başlangıç
+    
+    1. **Kayıt Olun:** `POST /api/v1/auth/register`
+    2. **Giriş Yapın:** `POST /api/v1/auth/login`
+    3. **Token Kullanın:** Authorization header'ında `Bearer {token}` ekleyin
+    4. **İşlem Yapın:** Korumalı endpoint'lere erişin
+    
+    ## 📞 İletişim
+    
+    - **Website:** https://polikrami.com
+    - **Support Email:** support@polikrami.com
+    - **API Status:** https://status.polikrami.com
+    
+  version: 1.0.0
+  contact:
+    name: Polikrami API Support
+    email: support@polikrami.com
+    url: https://polikrami.com
+  license:
+    name: Proprietary
+    url: https://polikrami.com/terms
+
+servers:
+  - url: https://api.polikrami.com/api/v1
+    description: Production Server
+  - url: http://localhost:3000/api/v1
+    description: Local Development Server
+
+tags:
+  - name: Authentication
+    description: |
+      Kimlik doğrulama işlemleri. JWT tabanlı access/refresh token sistemi kullanır.
+      
+      **Akış:**
+      1. Register/Login → Access Token + Refresh Token alırsınız
+      2. Access Token ile API çağrıları yaparsınız
+      3. Access Token expire olduğunda refresh endpoint'i ile yenilersiniz
+      
+  - name: Users
+    description: |
+      Kullanıcı profili yönetimi, şifre değiştirme, telefon doğrulama.
+      
+  - name: Drafts
+    description: |
+      Taslak sipariş oluşturma ve yönetme. 3 yöntem desteklenir:
+      - **upload:** Kullanıcı kendi dosyasını yükler
+      - **ai:** AI ile otomatik oluşturma
+      - **artist:** Tasarımcı ile çalışma
+      
+  - name: Orders
+    description: |
+      Sipariş yönetimi, durum takibi, iptal işlemleri.
+      
+  - name: Payments
+    description: |
+      Ödeme işlemleri (Iyzico entegrasyonu), geri ödeme, durum kontrolleri.
+      
+  - name: Designers
+    description: |
+      Tasarımcı profilleri, arama, yorumlar ve değerlendirmeler.
+      
+  - name: Addresses
+    description: |
+      Teslimat adresleri yönetimi. Kullanıcı başına max 10 adres.
+      
+  - name: Wallet
+    description: |
+      Sanal cüzdan sistemi. Kredi satın alma, harcama, transaction geçmişi.
+      
+  - name: Shipments
+    description: |
+      Kargo takip sistemi. Gerçek zamanlı durum güncellemeleri ve webhook desteği.
+      
+  - name: Templates
+    description: |
+      Tasarım şablonları. Public listleme ve admin yönetimi.
+      
+  - name: Categories
+    description: |
+      Ürün kategorileri. Public listleme ve admin yönetimi.
+      
+  - name: Search
+    description: |
+      Global arama (templates, designers, projects) ve autocomplete önerileri.
+      
+  - name: AI
+    description: |
+      AI tabanlı tasarım üretimi (Stability AI entegrasyonu).
+      
+  - name: Likes
+    description: |
+      Mesaj kartı beğeni sistemi. Public ve authenticated kullanıcılar.
+      
+  - name: Comments
+    description: |
+      Proje yorumları ve değerlendirmeler.
+      
+  - name: Notifications
+    description: |
+      Kullanıcı bildirimleri. Push notification desteği.
+      
+  - name: Message Cards
+    description: |
+      Popüler mesaj kartları kataloğu.
+      
+  - name: Projects
+    description: |
+      Çoklu kullanıcılı proje yönetimi.
+      
+  - name: Organizations
+    description: |
+      Organizasyon ve team yönetimi.
+      
+  - name: Returns
+    description: |
+      İade talepleri ve süreç yönetimi.
+      
+  - name: Assets
+    description: |
+      Yüklenmiş dosya (asset) yönetimi.
+      
+  - name: Locations
+    description: |
+      Türkiye il/ilçe/mahalle hiyerarşisi (adres için).
+      
+  - name: Contact
+    description: |
+      İletişim formu gönderimi.
+
 paths:
+  # =============================================================================
+  # HEALTH CHECK
+  # =============================================================================
   /health:
     get:
-      summary: Health check
+      summary: Health Check
+      description: API durumunu kontrol eder. Monitoring için kullanılır.
+      tags: [Health]
       responses:
         '200':
-          description: OK
-  /api/v1/message-cards/popular:
-    get:
-      summary: Popular message cards
-      tags: [MessageCards]
-      responses:
-        '200':
-          description: List with like counts
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  type: object
-                  properties:
-                    id: { type: string }
-                    title: { type: string }
-                    thumbnailUrl: { type: string, nullable: true }
-                    likes: { type: integer }
-  /api/v1/likes/cards/{id}/summary:
-    get:
-      summary: Like count for a card
-      tags: [Likes]
-      parameters:
-        - in: path
-          name: id
-          schema:
-            type: string
-          required: true
-      responses:
-        '200':
-          description: Count
+          description: API sağlıklı çalışıyor
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  likes: { type: integer }
-  /api/v1/designers/public/{id}:
-    get:
-      summary: Public designer profile
-      tags: [Designers]
-      parameters:
-        - in: path
-          name: id
-          schema:
-            type: string
-          required: true
-      responses:
-        '200':
-          description: Profile
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  id: { type: string }
-                  name: { type: string, nullable: true }
-                  avatarUrl: { type: string, nullable: true }
-                  profile: { type: object, nullable: true }
-                  rating:
-                    type: object
-                    properties:
-                      avg: { type: number }
-                      count: { type: integer }
-  /api/v1/designers/public:
-    get:
-      summary: Search designers publicly
-      tags: [Designers]
-      parameters:
-        - in: query
-          name: q
-          schema: { type: string }
-        - in: query
-          name: skill
-          schema: { type: string }
-        - in: query
-          name: limit
-          schema: { type: integer, default: 20 }
-      responses:
-        '200':
-          description: Designers list
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  items:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        id: { type: string }
-                        name: { type: string, nullable: true }
-                        avatarUrl: { type: string, nullable: true }
-                        profile: { type: object, nullable: true }
-  /api/v1/shipments/public/{id}/events:
-    get:
-      summary: Public shipment events
-      tags: [Shipments]
-      parameters:
-        - in: path
-          name: id
-          schema:
-            type: string
-          required: true
-      responses:
-        '200':
-          description: Events
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  shipment:
-                    type: object
-                    properties:
-                      id: { type: string }
-                      status: { type: string }
-                      carrierCode: { type: string }
-                      trackingNumber: { type: string }
-                  events:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        id: { type: string }
-                        occurredAt: { type: string, format: date-time }
-                        status: { type: string }
-                        description: { type: string, nullable: true }
-                        location: { type: string, nullable: true }
-  /api/v1/auth/register:
+                  status:
+                    type: string
+                    example: ok
+                  timestamp:
+                    type: string
+                    format: date-time
+                  uptime:
+                    type: number
+                    description: Saniye cinsinden çalışma süresi
+
+  # =============================================================================
+  # AUTHENTICATION
+  # =============================================================================
+  /auth/register:
     post:
-      summary: Register
-      tags: [Auth]
+      summary: Kullanıcı Kaydı
+      description: |
+        Yeni kullanıcı hesabı oluşturur. Email doğrulama linki otomatik gönderilir.
+        
+        **Önemli:**
+        - Email benzersiz olmalı
+        - Şifre en az 8 karakter, 1 büyük harf, 1 küçük harf, 1 rakam içermeli
+        - `acceptTerms` ve `acceptPrivacy` true olmalı
+        - Designer rolü için `acceptRevenueShare` true olmalı
+        
+        **Rate Limit:** 5 kayıt/saat per IP
+      tags: [Authentication]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+            examples:
+              customer:
+                summary: Müşteri Kaydı
+                value:
+                  email: john.doe@example.com
+                  password: SecureP@ss123
+                  confirmPassword: SecureP@ss123
+                  name: John Doe
+                  role: user
+                  acceptTerms: true
+                  acceptPrivacy: true
+              designer:
+                summary: Tasarımcı Kaydı
+                value:
+                  email: jane.designer@example.com
+                  password: Design@123
+                  confirmPassword: Design@123
+                  name: Jane Designer
+                  role: designer
+                  acceptTerms: true
+                  acceptPrivacy: true
+                  acceptRevenueShare: true
+      responses:
+        '201':
+          description: Kayıt başarılı
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: Email zaten kayıtlı
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: Bu email adresi zaten kayıtlı.
+                code: EMAIL_ALREADY_EXISTS
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /auth/login:
+    post:
+      summary: Giriş Yap
+      description: |
+        Email ve şifre ile giriş yapar. Access token ve refresh token döndürür.
+        
+        **Token Bilgileri:**
+        - Access Token: 15 dakika geçerli
+        - Refresh Token: 30 gün geçerli
+        - Remember me: true ise cookie'ler persistent olur
+        
+        **Rate Limit:** 10 deneme/dakika per IP
+        **Account Lock:** 5 başarısız denemeden sonra 15 dakika kilit
+      tags: [Authentication]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Giriş başarılı
+          headers:
+            Set-Cookie:
+              description: Authentication cookies
+              schema:
+                type: string
+                example: access=eyJhbGc...; refresh=eyJhbGc...; remember=1
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: Email veya şifre hatalı
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: Email veya şifre hatalı
+                code: INVALID_CREDENTIALS
+        '423':
+          description: Hesap kilitli (çok fazla başarısız deneme)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: Hesabınız 15 dakika süreyle kilitlendi
+                code: ACCOUNT_LOCKED
+                unlockAt: '2025-10-30T14:45:00Z'
+
+  /auth/refresh:
+    post:
+      summary: Token Yenile
+      description: |
+        Refresh token kullanarak yeni access token alır.
+        
+        **Kullanım:**
+        1. Access token expire olduğunda bu endpoint'i çağırın
+        2. Cookie veya body'den refresh token gönderilir
+        3. Yeni access ve refresh token alırsınız
+      tags: [Authentication]
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Token yenilendi
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                    example: true
+                  accessToken:
+                    type: string
+                  refreshToken:
+                    type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/logout:
+    post:
+      summary: Çıkış Yap
+      description: |
+        Aktif refresh token'ları revoke eder ve cookie'leri temizler.
+      tags: [Authentication]
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Çıkış başarılı
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Başarıyla çıkış yaptınız
+
+  /auth/forgot-password:
+    post:
+      summary: Şifre Sıfırlama Talebi
+      description: |
+        Şifre sıfırlama kodu email'e gönderilir.
+        
+        **Güvenlik:**
+        - Email enumeration korumalı (her zaman aynı mesaj döner)
+        - Code 10 dakika geçerli
+        - Rate limited: 3 istek/saat
+      tags: [Authentication]
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [email, password, confirmPassword, acceptTerms, acceptPrivacy]
+              required: [email]
               properties:
-                email: { type: string, format: email }
-                password: { type: string, minLength: 8 }
-                confirmPassword: { type: string }
-                name: { type: string }
-                role: { type: string, enum: [user, designer] }
-                acceptTerms: { type: boolean }
-                acceptPrivacy: { type: boolean }
-                acceptRevenueShare: { type: boolean }
+                email:
+                  type: string
+                  format: email
       responses:
-        '201': { description: Created }
-  /api/v1/drafts/{id}/preview:
+        '200':
+          description: Başarılı (email exists olsun olmasın)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Eğer bu email kayıtlıysa, şifre sıfırlama kodu gönderildi
+
+  /auth/verify-reset-code:
     post:
-      summary: Send preview (designer)
+      summary: Sıfırlama Kodu Doğrulama
+      description: Email'e gelen kodu doğrular
+      tags: [Authentication]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, code]
+              properties:
+                email:
+                  type: string
+                  format: email
+                code:
+                  type: string
+                  example: '123456'
+      responses:
+        '200':
+          description: Kod geçerli
+        '400':
+          description: Kod geçersiz veya expired
+
+  /auth/reset-password:
+    post:
+      summary: Şifreyi Sıfırla
+      description: Doğrulanmış kod ile yeni şifre belirlenir
+      tags: [Authentication]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, code, password, confirmPassword]
+              properties:
+                email:
+                  type: string
+                  format: email
+                code:
+                  type: string
+                password:
+                  type: string
+                  minLength: 8
+                confirmPassword:
+                  type: string
+      responses:
+        '200':
+          description: Şifre başarıyla değiştirildi
+        '400':
+          description: Kod geçersiz veya şifreler eşleşmiyor
+
+  /auth/resend-verification:
+    post:
+      summary: Email Doğrulama Linkini Tekrar Gönder
+      description: |
+        Email doğrulama linki tekrar gönderilir.
+        Rate limit: 3 istek/saat
+      tags: [Authentication]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        '200':
+          description: Doğrulama linki gönderildi
+
+  /auth/verify-email:
+    post:
+      summary: Email Doğrula
+      description: Email doğrulama linkindeki token'ı validate eder
+      tags: [Authentication]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: Email doğrulandı
+        '400':
+          description: Token geçersiz veya expired
+
+  # =============================================================================
+  # USERS
+  # =============================================================================
+  /users/me:
+    get:
+      summary: Profil Bilgilerim
+      description: Oturum açmış kullanıcının profil bilgilerini getirir
+      tags: [Users]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Profil bilgileri
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    put:
+      summary: Profilimi Güncelle
+      description: |
+        Profil bilgilerini günceller. Email değiştirilemez.
+        
+        **Güncellenebilir Alanlar:**
+        - name, phone, company, address, preferences
+      tags: [Users]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProfileRequest'
+      responses:
+        '200':
+          description: Profil güncellendi
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+
+  /users/me/change-password:
+    post:
+      summary: Şifre Değiştir
+      description: |
+        Mevcut şifre doğrulanarak yeni şifre belirlenir.
+        
+        **Güvenlik:**
+        - Eski şifre zorunlu
+        - Yeni şifre complexity rules'a uymalı
+      tags: [Users]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currentPassword, newPassword, confirmNewPassword]
+              properties:
+                currentPassword:
+                  type: string
+                newPassword:
+                  type: string
+                  minLength: 8
+                confirmNewPassword:
+                  type: string
+      responses:
+        '200':
+          description: Şifre değiştirildi
+        '400':
+          description: Mevcut şifre hatalı veya yeni şifreler eşleşmiyor
+
+  /users/phone/send-code:
+    post:
+      summary: Telefon Doğrulama Kodu Gönder
+      description: |
+        SMS ile telefon doğrulama kodu gönderir.
+        Rate limit: 3 istek/saat
+      tags: [Users]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phone]
+              properties:
+                phone:
+                  type: string
+                  example: '+905551234567'
+      responses:
+        '200':
+          description: Kod gönderildi
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /users/phone/verify:
+    post:
+      summary: Telefon Doğrulama Kodu Kontrol
+      description: SMS ile gelen kodu doğrular
+      tags: [Users]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code:
+                  type: string
+                  example: '123456'
+      responses:
+        '200':
+          description: Telefon doğrulandı
+        '400':
+          description: Kod geçersiz
+
+  # =============================================================================
+  # DRAFTS
+  # =============================================================================
+  /drafts:
+    post:
+      summary: Yeni Taslak Oluştur
+      description: |
+        Yeni bir sipariş taslağı oluşturur. 3 yöntem desteklenir:
+        
+        - **upload:** Kullanıcı kendi dosyasını yükler
+        - **ai:** AI ile otomatik tasarım oluşturur
+        - **artist:** Tasarımcı ile birlikte çalışır
+        
+        **İş Akışı:**
+        1. Draft oluştur (step=1)
+        2. Detayları doldur (message card, shipping, etc.)
+        3. Commit işlemi → Order'a dönüşür
       tags: [Drafts]
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema: { type: string }
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [method]
+              properties:
+                method:
+                  type: string
+                  enum: [upload, ai, artist]
+                  description: Tasarım yöntemi
+            examples:
+              upload:
+                summary: Upload Yöntemi
+                value:
+                  method: upload
+              ai:
+                summary: AI Yöntemi
+                value:
+                  method: ai
+              artist:
+                summary: Tasarımcı Yöntemi
+                value:
+                  method: artist
       responses:
-        '200': { description: OK }
-  /api/v1/drafts/{id}/revision:
-    post:
-      summary: Request revision (user)
+        '201':
+          description: Taslak oluşturuldu
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Draft'
+        '402':
+          description: Yetersiz kredi (AI için)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: Yetersiz kredi
+                code: INSUFFICIENT_CREDITS
+                required: 50
+                current: 20
+
+    get:
+      summary: Taslak Listele
+      description: |
+        Kullanıcının tüm taslaklarını listeler.
+        
+        **Filtreleme:**
+        - method, status, date range
       tags: [Drafts]
+      security:
+        - bearerAuth: []
       parameters:
-        - in: path
-          name: id
-          required: true
-          schema: { type: string }
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - name: method
+          in: query
+          schema:
+            type: string
+            enum: [upload, ai, artist]
+        - name: status
+          in: query
+          schema:
+            type: string
       responses:
-        '200': { description: OK }
-  /api/v1/drafts/{id}/approve:
-    post:
-      summary: Approve preview (user)
+        '200':
+          description: Taslak listesi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  drafts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Draft'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+
+  /drafts/{id}:
+    get:
+      summary: Taslak Detay
+      description: Belirli bir taslağın detaylarını getirir
       tags: [Drafts]
+      security:
+        - bearerAuth: []
       parameters:
-        - in: path
-          name: id
-          required: true
-          schema: { type: string }
+        - $ref: '#/components/parameters/DraftIdParam'
       responses:
-        '200': { description: OK }
-  /api/v1/drafts/{id}/cancel:
-    post:
-      summary: Cancel draft (user)
+        '200':
+          description: Taslak detayı
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DraftDetail'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      summary: Taslak Güncelle
+      description: |
+        Taslak bilgilerini günceller. Step bazlı ilerleme.
       tags: [Drafts]
+      security:
+        - bearerAuth: []
       parameters:
-        - in: path
-          name: id
-          required: true
-          schema: { type: string }
+        - $ref: '#/components/parameters/DraftIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                step:
+                  type: integer
+                  description: Taslak adımı (1-5)
+                data:
+                  type: object
+                  description: Adıma özgü data
+                messageCardId:
+                  type: string
+                  format: uuid
       responses:
-        '200': { description: OK }
-  /api/v1/orders/{id}/cancel:
+        '200':
+          description: Taslak güncellendi
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Draft'
+
+  /drafts/{id}/message-card:
     post:
-      summary: Cancel order with reason
+      summary: Mesaj Kartı Seç
+      description: Taslak için mesaj kartı seçimi yapar
+      tags: [Drafts]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/DraftIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [messageCardId]
+              properties:
+                messageCardId:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: Mesaj kartı seçildi
+
+  /drafts/{id}/shipping:
+    post:
+      summary: Kargo Bilgisi Ekle
+      description: |
+        Taslak için kargo bilgisi ekler.
+        
+        **İki seçenek:**
+        1. Bu endpoint: Manuel address girişi
+        2. `/shipping/address`: Kayıtlı addressten seçim
+      tags: [Drafts]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/DraftIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddressInput'
+      responses:
+        '200':
+          description: Kargo bilgisi eklendi
+
+  /drafts/{id}/shipping/address:
+    post:
+      summary: Kayıtlı Adresten Kargo Bilgisi Ekle
+      description: Kullanıcının kayıtlı adreslerinden birini seçer
+      tags: [Drafts]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/DraftIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [addressId]
+              properties:
+                addressId:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: Adres seçildi
+
+  /drafts/{id}/billing:
+    post:
+      summary: Fatura Adresi Ekle
+      description: |
+        Fatura adresi ekler. Varsayılan olarak kargo adresi ile aynıdır.
+      tags: [Drafts]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/DraftIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddressInput'
+      responses:
+        '200':
+          description: Fatura adresi eklendi
+
+  /drafts/{id}/upload:
+    post:
+      summary: Dosya Yükle
+      description: |
+        Taslak için dosya yükler (upload method için).
+        
+        **Desteklenen Formatlar:** PNG, JPG, WEBP, PDF  
+        **Maksimum Boyut:** 100MB
+      tags: [Drafts]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/DraftIdParam'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Dosya yüklendi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  assetId:
+                    type: string
+                    format: uuid
+                  url:
+                    type: string
+        '413':
+          description: Dosya çok büyük
+        '415':
+          description: Desteklenmeyen format
+
+  /drafts/{id}/assign-designer:
+    post:
+      summary: Tasarımcı Ata
+      description: |
+        Taslak için tasarımcı atar (artist method için).
+        
+        **Koşullar:**
+        - Method 'artist' olmalı
+        - Tasarımcı aktif olmalı
+      tags: [Drafts]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/DraftIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [designerId]
+              properties:
+                designerId:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: Tasarımcı atandı
+        '400':
+          description: Geçersiz method veya tasarımcı
+        '409':
+          description: Tasarımcı zaten atanmış
+
+  /drafts/{id}/preview:
+    post:
+      summary: Önizleme Gönder (Tasarımcı)
+      description: |
+        Tasarımcı müşteriye önizleme gönderir.
+        
+        **Yetki:** Sadece atanmış tasarımcı veya admin
+      tags: [Drafts]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/DraftIdParam'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                note:
+                  type: string
+      responses:
+        '200':
+          description: Önizleme gönderildi
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /drafts/{id}/revision:
+    post:
+      summary: Revizyon Talebi (Müşteri)
+      description: |
+        Müşteri tasarımcıdan revizyon talep eder.
+        
+        **Limitler:**
+        - Maksimum 3 revizyon hakkı
+        - Her revizyon için açıklama zorunlu
+      tags: [Drafts]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/DraftIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [note]
+              properties:
+                note:
+                  type: string
+                  minLength: 10
+                  maxLength: 500
+      responses:
+        '200':
+          description: Revizyon talebi gönderildi
+        '400':
+          description: Revizyon hakkı dolmuş
+
+  /drafts/{id}/approve:
+    post:
+      summary: Tasarımı Onayla (Müşteri)
+      description: |
+        Müşteri final tasarımı onaylar. Artık revizyon yapılamaz.
+      tags: [Drafts]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/DraftIdParam'
+      responses:
+        '200':
+          description: Tasarım onaylandı
+
+  /drafts/{id}/cancel:
+    post:
+      summary: Taslak İptal Et
+      description: |
+        Taslak iptal edilir. İptal nedeni belirtilmelidir.
+        
+        **Not:** Commit edildikten sonra iptal edilemez.
+      tags: [Drafts]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/DraftIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                  maxLength: 500
+      responses:
+        '200':
+          description: Taslak iptal edildi
+        '400':
+          description: Taslak zaten commit edilmiş
+
+  /drafts/{id}/commit:
+    post:
+      summary: Taslak Siparişe Dönüştür
+      description: |
+        Taslak commit edilerek Order'a dönüştürülür.
+        
+        **Koşullar:**
+        - Tüm zorunlu alanlar dolu olmalı
+        - Method'a göre approval/preview gönderilmiş olmalı
+        - Yeterli kredi/bakiye olmalı
+      tags: [Drafts]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/DraftIdParam'
+      responses:
+        '200':
+          description: Sipariş oluşturuldu
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  orderId:
+                    type: string
+                    format: uuid
+                  message:
+                    type: string
+                    example: Sipariş başarıyla oluşturuldu
+        '400':
+          description: Eksik bilgi veya yetersiz kredi
+
+  /drafts/{id}/workflow-history:
+    get:
+      summary: İş Akışı Geçmişi
+      description: |
+        Taslağın workflow geçmişini (revisions, approvals) getirir.
+      tags: [Drafts]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/DraftIdParam'
+      responses:
+        '200':
+          description: Workflow geçmişi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  history:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        status:
+                          type: string
+                        timestamp:
+                          type: string
+                          format: date-time
+                        actor:
+                          type: string
+                        note:
+                          type: string
+
+  # =============================================================================
+  # ORDERS
+  # =============================================================================
+  /orders:
+    get:
+      summary: Siparişlerimi Listele
+      description: |
+        Kullanıcının tüm siparişlerini listeler.
+        
+        **Filtreleme:**
+        - status, date range
       tags: [Orders]
+      security:
+        - bearerAuth: []
       parameters:
-        - in: path
-          name: id
-          required: true
-          schema: { type: string }
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, paid, processing, shipped, delivered, canceled, refunded]
+      responses:
+        '200':
+          description: Sipariş listesi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  orders:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Order'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+
+  /orders/{id}:
+    get:
+      summary: Sipariş Detay
+      description: |
+        Belirli bir siparişin detaylarını getirir.
+        
+        **İçerik:**
+        - Sipariş bilgileri
+        - Ödeme durumu
+        - Kargo bilgisi
+        - Line items
+      tags: [Orders]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrderIdParam'
+      responses:
+        '200':
+          description: Sipariş detayı
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDetail'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /orders/{id}/cancel:
+    post:
+      summary: Sipariş İptal Et
+      description: |
+        Sipariş iptal edilir. İptal koşulları:
+        - Ödeme yapılmamış veya
+        - Kargo hazırlığına geçmemiş
+        
+        **İade:** Ödeme yapıldıysa otomatik iade başlatılır.
+      tags: [Orders]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrderIdParam'
       requestBody:
         required: false
         content:
@@ -221,30 +1196,3864 @@ paths:
             schema:
               type: object
               properties:
-                reason: { type: string }
-      responses:
-        '200': { description: OK }
-
-  /api/v1/users/phone/send-code:
-    post:
-      summary: Send phone verification code
-      tags: [Users]
+                reason:
+                  type: string
+                  maxLength: 500
       responses:
         '200':
-          description: OK
+          description: Sipariş iptal edildi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  refundId:
+                    type: string
+                    format: uuid
+                    description: Varsa iade ID'si
+        '400':
+          description: Sipariş iptal edilemez (kargo çıkmış vs.)
 
-  /api/v1/users/phone/verify:
+  # =============================================================================
+  # PAYMENTS
+  # =============================================================================
+  /payments/initiate:
     post:
-      summary: Verify phone code
-      tags: [Users]
+      summary: Ödeme Başlat
+      description: |
+        Sipariş için ödeme işlemi başlatır.
+        
+        **Desteklenen Yöntemler:**
+        - credit_card: Kredi kartı (3D Secure)
+        - bank_transfer: Havale/EFT
+        - wallet: Cüzdan kredisi
+        
+        **Akış:**
+        1. Payment oluştur
+        2. Provider'a yönlendir (3D Secure için)
+        3. Callback ile sonuç al
+        4. Order durumu güncellenir
+      tags: [Payments]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [orderId, paymentMethod]
+              properties:
+                orderId:
+                  type: string
+                  format: uuid
+                paymentMethod:
+                  type: string
+                  enum: [credit_card, bank_transfer, wallet]
+                returnUrl:
+                  type: string
+                  format: uri
+                  description: 3D Secure sonrası dönüş URL'i
+                cancelUrl:
+                  type: string
+                  format: uri
+            examples:
+              credit_card:
+                summary: Kredi Kartı
+                value:
+                  orderId: 550e8400-e29b-41d4-a716-446655440000
+                  paymentMethod: credit_card
+                  returnUrl: https://myapp.com/payment/success
+                  cancelUrl: https://myapp.com/payment/cancel
+              wallet:
+                summary: Cüzdan
+                value:
+                  orderId: 550e8400-e29b-41d4-a716-446655440000
+                  paymentMethod: wallet
+      responses:
+        '201':
+          description: Ödeme başlatıldı
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  paymentId:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    enum: [pending, redirecting, processing]
+                  redirectUrl:
+                    type: string
+                    format: uri
+                    description: 3D Secure redirect URL (varsa)
+                  message:
+                    type: string
+              examples:
+                redirect_3d:
+                  summary: 3D Secure Redirect
+                  value:
+                    paymentId: 660e8400-e29b-41d4-a716-446655440000
+                    status: redirecting
+                    redirectUrl: https://iyzico.com/3ds/...
+                    message: 3D Secure doğrulamasına yönlendiriliyorsunuz
+                wallet_completed:
+                  summary: Cüzdan Ödeme
+                  value:
+                    paymentId: 660e8400-e29b-41d4-a716-446655440000
+                    status: completed
+                    message: Ödeme başarıyla tamamlandı
+        '402':
+          description: Yetersiz bakiye
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: Cüzdanınızda yetersiz bakiye
+                code: INSUFFICIENT_BALANCE
+                required: 5000
+                current: 2000
+
+  /payments/credit-card:
+    post:
+      summary: Kredi Kartı ile Ödeme
+      description: |
+        Direkt kredi kartı bilgileri ile ödeme başlatır.
+        
+        **Güvenlik:**
+        - PCI-DSS compliant
+        - Kart bilgileri backend'de saklanmaz
+        - 3D Secure zorunlu
+      tags: [Payments]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [orderId, cardDetails, billingAddress]
+              properties:
+                orderId:
+                  type: string
+                  format: uuid
+                cardDetails:
+                  type: object
+                  required: [cardNumber, cardName, expireMonth, expireYear, cvc]
+                  properties:
+                    cardNumber:
+                      type: string
+                      example: '5528790000000008'
+                    cardName:
+                      type: string
+                      example: JOHN DOE
+                    expireMonth:
+                      type: string
+                      example: '12'
+                    expireYear:
+                      type: string
+                      example: '2030'
+                    cvc:
+                      type: string
+                      example: '123'
+                billingAddress:
+                  $ref: '#/components/schemas/AddressInput'
+                installments:
+                  type: integer
+                  minimum: 1
+                  maximum: 12
+                  default: 1
+      responses:
+        '201':
+          description: Ödeme başlatıldı
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  paymentId:
+                    type: string
+                    format: uuid
+                  redirectUrl:
+                    type: string
+                    format: uri
+                  threeDsHtml:
+                    type: string
+                    description: 3D Secure HTML formu
+
+  /payments/{paymentId}/status:
+    get:
+      summary: Ödeme Durumu
+      description: |
+        Ödeme durumunu kontrol eder.
+        
+        **Kullanım:**
+        - 3D Secure sonrası durum kontrolü
+        - Polling için (pending ödemeler)
+      tags: [Payments]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: paymentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
       responses:
         '200':
-          description: OK
-  /api/v1/users/phone/firebase-verify:
+          description: Ödeme durumu
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  paymentId:
+                    type: string
+                    format: uuid
+                  orderId:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    enum: [pending, processing, completed, failed, refunded]
+                  method:
+                    type: string
+                  amount:
+                    type: integer
+                    description: Kuruş cinsinden
+                  currency:
+                    type: string
+                    example: TRY
+                  providerTransactionId:
+                    type: string
+                  errorMessage:
+                    type: string
+                    nullable: true
+                  createdAt:
+                    type: string
+                    format: date-time
+                  completedAt:
+                    type: string
+                    format: date-time
+                    nullable: true
+
+  /payments/refund:
     post:
-      summary: Verify phone via Firebase ID token
-      tags: [Users]
+      summary: İade Talebi
+      description: |
+        Ödeme iadesi başlatır.
+        
+        **Koşullar:**
+        - Ödeme completed durumunda olmalı
+        - Kısmi veya tam iade yapılabilir
+        - Admin onayı gerekebilir
+      tags: [Payments]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [paymentId]
+              properties:
+                paymentId:
+                  type: string
+                  format: uuid
+                amount:
+                  type: integer
+                  description: Kuruş cinsinden. Boşsa tam iade.
+                reason:
+                  type: string
+                  maxLength: 500
       responses:
         '200':
-          description: OK
+          description: İade işlemi başlatıldı
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  refundId:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    enum: [pending, processing, completed]
+                  amount:
+                    type: integer
+                  message:
+                    type: string
 
+  /payments/callback:
+    post:
+      summary: Ödeme Provider Callback
+      description: |
+        **WEBHOOK ENDPOINT**
+        
+        Payment provider'lar (Iyzico, vb.) bu endpoint'e callback gönderir.
+        
+        **Güvenlik:**
+        - Signature validation
+        - IP whitelist
+      tags: [Payments]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                orderId:
+                  type: string
+                  format: uuid
+                paymentId:
+                  type: string
+                  format: uuid
+                status:
+                  type: string
+                transactionId:
+                  type: string
+                errorMessage:
+                  type: string
+      responses:
+        '200':
+          description: Callback işlendi
+        '400':
+          description: Geçersiz callback data
+
+  # =============================================================================
+  # DESIGNERS
+  # =============================================================================
+  /designers:
+    get:
+      summary: Tasarımcıları Listele
+      description: |
+        Aktif tasarımcıları listeler (authenticated users için).
+        
+        **Filtreleme:**
+        - skill, rating, availability
+      tags: [Designers]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - name: skill
+          in: query
+          schema:
+            type: string
+        - name: minRating
+          in: query
+          schema:
+            type: number
+            minimum: 1
+            maximum: 5
+      responses:
+        '200':
+          description: Tasarımcı listesi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  designers:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Designer'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+
+  /designers/recommended:
+    get:
+      summary: Önerilen Tasarımcılar
+      description: |
+        Kullanıcıya özel önerilen tasarımcılar.
+        
+        **Algoritma:**
+        - User preferences
+        - Past orders
+        - Rating & availability
+      tags: [Designers]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: Önerilen tasarımcılar
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  slate:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Designer'
+                    description: Üst sıra önerileri
+                  rest:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Designer'
+                    description: Diğer öneriler
+
+  /designers/public/{id}:
+    get:
+      summary: Tasarımcı Public Profil
+      description: |
+        Tasarımcının public profili (authentication gerekmez).
+        
+        **İçerik:**
+        - Portfolio
+        - Reviews
+        - Stats (avg rating, completed orders)
+      tags: [Designers]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Tasarımcı profili
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  name:
+                    type: string
+                  avatarUrl:
+                    type: string
+                    nullable: true
+                  bio:
+                    type: string
+                  skills:
+                    type: array
+                    items:
+                      type: string
+                  portfolio:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        imageUrl:
+                          type: string
+                        title:
+                          type: string
+                  stats:
+                    type: object
+                    properties:
+                      averageRating:
+                        type: number
+                      totalReviews:
+                        type: integer
+                      completedOrders:
+                        type: integer
+                  reviews:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Review'
+
+  /designers/public:
+    get:
+      summary: Tasarımcı Public Arama
+      description: Public tasarımcı arama (authentication gerekmez)
+      tags: [Designers]
+      parameters:
+        - name: q
+          in: query
+          schema:
+            type: string
+        - name: skill
+          in: query
+          schema:
+            type: string
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: Arama sonuçları
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  designers:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Designer'
+
+  /designers/{id}/reviews:
+    get:
+      summary: Tasarımcı Yorumları
+      description: Tasarımcının aldığı yorumları listeler
+      tags: [Designers]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: Yorum listesi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reviews:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Review'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+
+    post:
+      summary: Tasarımcı Yorumu Ekle
+      description: |
+        Tamamlanmış sipariş sonrası tasarımcıyı değerlendirin.
+        
+        **Koşul:** Kullanıcının tasarımcı ile tamamlanmış siparişi olmalı
+      tags: [Designers]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [rating]
+              properties:
+                rating:
+                  type: integer
+                  minimum: 1
+                  maximum: 5
+                comment:
+                  type: string
+                  maxLength: 500
+      responses:
+        '201':
+          description: Yorum eklendi
+        '400':
+          description: Bu tasarımcı ile tamamlanmış siparişiniz yok
+
+  # =============================================================================
+  # ADDRESSES
+  # =============================================================================
+  /addresses:
+    get:
+      summary: Adreslerimi Listele
+      description: |
+        Kullanıcının kayıtlı adreslerini listeler.
+        
+        **Limit:** Kullanıcı başına maksimum 10 adres
+      tags: [Addresses]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Adres listesi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  addresses:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Address'
+                  total:
+                    type: integer
+
+    post:
+      summary: Yeni Adres Ekle
+      description: |
+        Yeni teslimat adresi ekler.
+        
+        **Validasyon:**
+        - Tüm zorunlu alanlar dolu olmalı
+        - Telefon numarası geçerli format
+      tags: [Addresses]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddressInput'
+      responses:
+        '201':
+          description: Adres eklendi
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Address'
+        '400':
+          description: Maksimum adres limitine ulaşıldı
+
+  /addresses/default:
+    get:
+      summary: Varsayılan Adres
+      description: Kullanıcının varsayılan adresini getirir
+      tags: [Addresses]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Varsayılan adres
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Address'
+        '404':
+          description: Varsayılan adres belirtilmemiş
+
+  /addresses/{id}:
+    get:
+      summary: Adres Detay
+      description: Belirli bir adresin detaylarını getirir
+      tags: [Addresses]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Adres detayı
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Address'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      summary: Adres Güncelle
+      description: Mevcut adresi günceller
+      tags: [Addresses]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddressInput'
+      responses:
+        '200':
+          description: Adres güncellendi
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Address'
+
+    delete:
+      summary: Adres Sil
+      description: |
+        Adresi siler.
+        
+        **Not:** Varsayılan adres silinemez (önce başka bir adresi varsayılan yapın)
+      tags: [Addresses]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Adres silindi
+        '400':
+          description: Varsayılan adres silinemez
+
+  /addresses/{id}/default:
+    post:
+      summary: Varsayılan Adres Yap
+      description: Bu adresi varsayılan adres olarak belirler
+      tags: [Addresses]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Varsayılan adres güncellendi
+
+  # =============================================================================
+  # WALLET
+  # =============================================================================
+  /wallet:
+    get:
+      summary: Cüzdan Bakiyem
+      description: |
+        Kullanıcının mevcut kredi bakiyesini getirir.
+        
+        **Kredi Sistemi:**
+        - 1 kredi ≈ 0.01 TL
+        - AI generation, custom orders için kullanılır
+      tags: [Wallet]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Cüzdan bakiyesi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  balance:
+                    type: integer
+                    description: Mevcut kredi
+                  balanceTRY:
+                    type: number
+                    description: TL karşılığı
+                  userId:
+                    type: string
+                    format: uuid
+
+  /wallet/history:
+    get:
+      summary: İşlem Geçmişi
+      description: |
+        Kredi transaction geçmişini getirir.
+        
+        **Filtreleme:**
+        - type: spend, refund, purchase, gift
+        - date range
+      tags: [Wallet]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [all, spend, refund, purchase, gift]
+            default: all
+      responses:
+        '200':
+          description: Transaction geçmişi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  transactions:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          format: uuid
+                        delta:
+                          type: integer
+                          description: '+' için artış, '-' için azalış
+                        type:
+                          type: string
+                          enum: [spend, refund, purchase, gift]
+                        note:
+                          type: string
+                        balanceAfter:
+                          type: integer
+                        createdAt:
+                          type: string
+                          format: date-time
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+
+  /wallet/stats:
+    get:
+      summary: Cüzdan İstatistikleri
+      description: |
+        Toplam harcama, kazanç, vs. istatistikleri getirir.
+      tags: [Wallet]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Cüzdan istatistikleri
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  totalSpent:
+                    type: integer
+                  totalRefunded:
+                    type: integer
+                  totalPurchased:
+                    type: integer
+                  totalGifted:
+                    type: integer
+
+  /wallet/purchase:
+    post:
+      summary: Kredi Satın Al
+      description: |
+        Kredi paketi satın alır.
+        
+        **Paketler:**
+        - basic: 300 kredi - 50 TL
+        - standard: 500 kredi - 100 TL
+        - premium: 1000 kredi - 200 TL
+        
+        **Rate Limit:** 5 purchase/saat
+      tags: [Wallet]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [packageType]
+              properties:
+                packageType:
+                  type: string
+                  enum: [basic, standard, premium]
+            examples:
+              basic:
+                summary: Basic Paket
+                value:
+                  packageType: basic
+              premium:
+                summary: Premium Paket
+                value:
+                  packageType: premium
+      responses:
+        '200':
+          description: Payment başlatıldı
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  paymentId:
+                    type: string
+                    format: uuid
+                  redirectUrl:
+                    type: string
+                    format: uri
+                  package:
+                    type: object
+                    properties:
+                      type:
+                        type: string
+                      credits:
+                        type: integer
+                      price:
+                        type: integer
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /wallet/grant:
+    post:
+      summary: Kredi Ver (Admin)
+      description: |
+        **ADMIN ONLY**
+        
+        Kullanıcıya manuel kredi verir.
+        
+        **Kullanım:**
+        - Kampanyalar
+        - Telafi
+        - Test
+      tags: [Wallet]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId, amount]
+              properties:
+                userId:
+                  type: string
+                  format: uuid
+                amount:
+                  type: integer
+                  minimum: 1
+                  maximum: 10000
+                note:
+                  type: string
+                  maxLength: 200
+      responses:
+        '200':
+          description: Kredi verildi
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # =============================================================================
+  # SHIPMENTS
+  # =============================================================================
+  /shipments/carriers:
+    get:
+      summary: Kargo Firmaları Listesi
+      description: |
+        Desteklenen kargo firmalarını listeler.
+        
+        **Public endpoint** - Authentication gerekmez
+      tags: [Shipments]
+      responses:
+        '200':
+          description: Kargo firmaları
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  carriers:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        code:
+                          type: string
+                          example: yurtici
+                        name:
+                          type: string
+                          example: Yurtiçi Kargo
+                        trackingUrlTemplate:
+                          type: string
+                          example: 'https://kargotakip.yurticikargo.com/{trackingNumber}'
+
+  /shipments/public/{id}/events:
+    get:
+      summary: Public Kargo Takip
+      description: |
+        **Public endpoint** - Sipariş sahibi olmayan kullanıcılar için.
+        
+        **Güvenlik:**
+        - IP based rate limiting (10 req/min)
+        - Optional: verification token gerekebilir
+      tags: [Shipments]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: verificationToken
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Kargo durumu
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShipmentEvents'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /shipments/orders/{id}/shipments:
+    get:
+      summary: Sipariş Kargo Bilgileri
+      description: |
+        Siparişe ait tüm kargo kayıtlarını getirir.
+        
+        **Yetki:** Sadece sipariş sahibi
+      tags: [Shipments]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Kargo listesi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  shipments:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Shipment'
+
+    post:
+      summary: Kargo Oluştur (Admin)
+      description: |
+        **ADMIN ONLY**
+        
+        Sipariş için kargo kaydı oluşturur.
+      tags: [Shipments]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [carrierCode, trackingNumber]
+              properties:
+                carrierCode:
+                  type: string
+                  example: yurtici
+                carrierName:
+                  type: string
+                  example: Yurtiçi Kargo
+                trackingNumber:
+                  type: string
+                  example: YT12345678
+      responses:
+        '201':
+          description: Kargo oluşturuldu
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Shipment'
+
+  /shipments/{id}/events:
+    get:
+      summary: Kargo Olayları (Authenticated)
+      description: |
+        Kargo tracking olaylarını getirir.
+        
+        **Yetki:** Sipariş sahibi
+      tags: [Shipments]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Kargo olayları
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShipmentEvents'
+
+  /shipments/{id}/sync:
+    post:
+      summary: Kargo Durumu Senkronize Et (Admin)
+      description: |
+        **ADMIN ONLY**
+        
+        Kargo provider'dan güncel durumu çeker.
+      tags: [Shipments]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Senkronizasyon başarılı
+
+  /shipments/webhook/{provider}:
+    post:
+      summary: Kargo Provider Webhook
+      description: |
+        **WEBHOOK ENDPOINT**
+        
+        Kargo firmaları durum güncellemelerini buraya gönderir.
+        
+        **Güvenlik:**
+        - Signature validation
+        - IP whitelist
+      tags: [Shipments]
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [mock, yurtici, aras, ptt]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Webhook işlendi
+
+  # =============================================================================
+  # TEMPLATES
+  # =============================================================================
+  /templates:
+    get:
+      summary: Şablon Listesi
+      description: |
+        Tasarım şablonlarını listeler.
+        
+        **Public endpoint** - Authentication gerekmez
+        
+        **Filtreleme:**
+        - category, tag, isPublished
+      tags: [Templates]
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: tag
+          in: query
+          schema:
+            type: string
+        - name: isPublished
+          in: query
+          schema:
+            type: boolean
+            default: true
+      responses:
+        '200':
+          description: Şablon listesi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  templates:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Template'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+
+    post:
+      summary: Yeni Şablon Oluştur
+      description: |
+        **DESIGNER or ADMIN**
+        
+        Yeni tasarım şablonu oluşturur.
+      tags: [Templates]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, slug]
+              properties:
+                name:
+                  type: string
+                slug:
+                  type: string
+                  pattern: '^[a-z0-9-]+
+                description:
+                  type: string
+                thumbnailUrl:
+                  type: string
+                categoryId:
+                  type: integer
+                tags:
+                  type: array
+                  items:
+                    type: string
+                isPublished:
+                  type: boolean
+                  default: false
+      responses:
+        '201':
+          description: Şablon oluşturuldu
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Template'
+
+  /templates/popular:
+    get:
+      summary: Popüler Şablonlar
+      description: En çok kullanılan şablonları getirir
+      tags: [Templates]
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+            maximum: 50
+      responses:
+        '200':
+          description: Popüler şablonlar
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  templates:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Template'
+
+  /templates/slug/{slug}:
+    get:
+      summary: Şablon Detay (Slug ile)
+      description: Slug ile şablon detayını getirir
+      tags: [Templates]
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Şablon detayı
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateDetail'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /templates/{id}:
+    get:
+      summary: Şablon Detay (ID ile)
+      description: UUID ile şablon detayını getirir
+      tags: [Templates]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Şablon detayı
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateDetail'
+
+    put:
+      summary: Şablon Güncelle
+      description: |
+        **DESIGNER or ADMIN**
+        
+        Şablon bilgilerini günceller.
+      tags: [Templates]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                isPublished:
+                  type: boolean
+      responses:
+        '200':
+          description: Şablon güncellendi
+
+    delete:
+      summary: Şablon Sil (Admin)
+      description: |
+        **ADMIN ONLY**
+        
+        Şablonu siler (soft delete).
+      tags: [Templates]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Şablon silindi
+
+  # =============================================================================
+  # CATEGORIES
+  # =============================================================================
+  /categories:
+    get:
+      summary: Kategori Listesi
+      description: |
+        Ürün kategorilerini listeler.
+        
+        **Public endpoint** - Authentication gerekmez
+      tags: [Categories]
+      responses:
+        '200':
+          description: Kategori listesi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  categories:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Category'
+
+    post:
+      summary: Yeni Kategori Oluştur (Admin)
+      description: |
+        **ADMIN ONLY**
+      tags: [Categories]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, slug]
+              properties:
+                name:
+                  type: string
+                slug:
+                  type: string
+                  pattern: '^[a-z0-9-]+
+                description:
+                  type: string
+      responses:
+        '201':
+          description: Kategori oluşturuldu
+
+  /categories/{id}:
+    get:
+      summary: Kategori Detay
+      description: Kategori detayını ve içindeki şablonları getirir
+      tags: [Categories]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Kategori detayı
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  category:
+                    $ref: '#/components/schemas/Category'
+                  templates:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Template'
+
+    put:
+      summary: Kategori Güncelle (Admin)
+      description: |
+        **ADMIN ONLY**
+      tags: [Categories]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+      responses:
+        '200':
+          description: Kategori güncellendi
+
+    delete:
+      summary: Kategori Sil (Admin)
+      description: |
+        **ADMIN ONLY**
+      tags: [Categories]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Kategori silindi
+
+  # =============================================================================
+  # SEARCH
+  # =============================================================================
+  /search:
+    get:
+      summary: Global Arama
+      description: |
+        Şablonlar, tasarımcılar ve projeler içinde arama yapar.
+        
+        **Rate Limit:** 30 req/dakika
+      tags: [Search]
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+            maxLength: 100
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [all, templates, projects, designers]
+            default: all
+        - name: category
+          in: query
+          schema:
+            type: string
+            maxLength: 50
+        - name: tag
+          in: query
+          schema:
+            type: string
+            maxLength: 50
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: Arama sonuçları
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  query:
+                    type: string
+                  results:
+                    type: object
+                    properties:
+                      templates:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Template'
+                      designers:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Designer'
+                      projects:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Project'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+
+  /search/suggestions:
+    get:
+      summary: Arama Önerileri
+      description: |
+        Autocomplete için arama önerileri.
+        
+        **Rate Limit:** 60 req/dakika
+      tags: [Search]
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+            maxLength: 50
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 20
+            default: 10
+      responses:
+        '200':
+          description: Öneriler
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  suggestions:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        text:
+                          type: string
+                        type:
+                          type: string
+                          enum: [template, designer, tag, category]
+                        count:
+                          type: integer
+
+  # =============================================================================
+  # AI GENERATION
+  # =============================================================================
+  /ai/templates:
+    get:
+      summary: AI Şablonları
+      description: |
+        AI için hazır prompt şablonlarını listeler.
+        
+        **Public endpoint**
+      tags: [AI]
+      responses:
+        '200':
+          description: AI şablonları
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  templates:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        name:
+                          type: string
+                        description:
+                          type: string
+                        promptTemplate:
+                          type: string
+                        variables:
+                          type: array
+                          items:
+                            type: string
+
+  /ai/templates/render:
+    post:
+      summary: AI Şablon Render
+      description: Şablon değişkenlerini doldurarak final prompt oluşturur
+      tags: [AI]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [templateId, fields]
+              properties:
+                templateId:
+                  type: string
+                fields:
+                  type: object
+                  additionalProperties: true
+      responses:
+        '200':
+          description: Render edilmiş prompt
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  renderedPrompt:
+                    type: string
+
+  /drafts/{id}/ai/generate:
+    post:
+      summary: AI ile Üretim Başlat
+      description: |
+        Draft için AI üretimi başlatır.
+        
+        **Maliyet:** 50 kredi per generation
+        
+        **Akış:**
+        1. Job queue'ya eklenir
+        2. Stability AI API çağrısı
+        3. Watermark ekleme
+        4. Sonuç storage'a kaydedilir
+      tags: [AI]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/DraftIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                templateId:
+                  type: string
+                fields:
+                  type: object
+                count:
+                  type: integer
+                  minimum: 1
+                  maximum: 4
+                  default: 1
+      responses:
+        '202':
+          description: Üretim başlatıldı
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jobId:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    enum: [queued, processing]
+                  creditsUsed:
+                    type: integer
+                  estimatedTime:
+                    type: integer
+                    description: Saniye cinsinden
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+
+  /drafts/{id}/ai/results:
+    get:
+      summary: AI Sonuçları
+      description: Draft için oluşturulmuş AI sonuçlarını getirir
+      tags: [AI]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/DraftIdParam'
+      responses:
+        '200':
+          description: AI sonuçları
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [pending, processing, completed, failed]
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          format: uuid
+                        imageUrl:
+                          type: string
+                        watermarkedUrl:
+                          type: string
+                        createdAt:
+                          type: string
+                          format: date-time
+                  selectedResultId:
+                    type: string
+                    format: uuid
+                    nullable: true
+
+  # =============================================================================
+  # LIKES
+  # =============================================================================
+  /likes/toggle:
+    post:
+      summary: Beğeni Toggle
+      description: |
+        Mesaj kartını beğenir veya beğeniyi kaldırır.
+        
+        **Rate Limit:** 60 req/dakika
+      tags: [Likes]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [messageCardId]
+              properties:
+                messageCardId:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: Beğeni durumu
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  liked:
+                    type: boolean
+                  totalLikes:
+                    type: integer
+                  message:
+                    type: string
+
+  /likes/cards/{id}/summary:
+    get:
+      summary: Beğeni Özeti
+      description: |
+        Mesaj kartının beğeni sayısını getirir.
+        
+        **Public endpoint**
+      tags: [Likes]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Beğeni özeti
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  messageCardId:
+                    type: string
+                    format: uuid
+                  totalLikes:
+                    type: integer
+                  recentLikes:
+                    type: integer
+                    description: Son 24 saatteki beğeni sayısı
+
+  # =============================================================================
+  # MESSAGE CARDS
+  # =============================================================================
+  /message-cards/popular:
+    get:
+      summary: Popüler Mesaj Kartları
+      description: |
+        En çok beğenilen mesaj kartlarını listeler.
+        
+        **Public endpoint**
+      tags: [Message Cards]
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 50
+      responses:
+        '200':
+          description: Popüler kartlar
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cards:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MessageCard'
+
+  # =============================================================================
+  # COMMENTS (PROJECT)
+  # =============================================================================
+  /comments:
+    get:
+      summary: Yorum Listele
+      description: Proje yorumlarını listeler
+      tags: [Comments]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: projectId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: layerId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [open, resolved]
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: Yorum listesi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  comments:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Comment'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+
+    post:
+      summary: Yorum Ekle
+      description: Projeye yeni yorum ekler
+      tags: [Comments]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [projectId, body]
+              properties:
+                projectId:
+                  type: string
+                  format: uuid
+                body:
+                  type: string
+                  minLength: 1
+                  maxLength: 2000
+                targetLayerId:
+                  type: string
+                  format: uuid
+                rating:
+                  type: integer
+                  minimum: 1
+                  maximum: 5
+      responses:
+        '201':
+          description: Yorum eklendi
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Comment'
+
+  /comments/{id}:
+    get:
+      summary: Yorum Detay
+      description: Belirli bir yorumun detayını getirir
+      tags: [Comments]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Yorum detayı
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Comment'
+
+    put:
+      summary: Yorum Güncelle
+      description: |
+        Yorumu günceller.
+        
+        **Yetki:** Yorum sahibi veya proje owner'ı
+      tags: [Comments]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                body:
+                  type: string
+                status:
+                  type: string
+                  enum: [open, resolved]
+                rating:
+                  type: integer
+      responses:
+        '200':
+          description: Yorum güncellendi
+
+    delete:
+      summary: Yorum Sil
+      description: |
+        Yorumu siler.
+        
+        **Yetki:** Yorum sahibi veya proje owner'ı
+      tags: [Comments]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Yorum silindi
+
+  /comments/projects/{projectId}/stats:
+    get:
+      summary: Proje Yorum İstatistikleri
+      description: Projenin yorum istatistiklerini getirir
+      tags: [Comments]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: İstatistikler
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                  open:
+                    type: integer
+                  resolved:
+                    type: integer
+                  averageRating:
+                    type: number
+
+  # =============================================================================
+  # NOTIFICATIONS
+  # =============================================================================
+  /notifications:
+    get:
+      summary: Bildirimlerimi Listele
+      description: Kullanıcının bildirimlerini listeler
+      tags: [Notifications]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: read
+          in: query
+          schema:
+            type: boolean
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: Bildirim listesi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  notifications:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Notification'
+                  unreadCount:
+                    type: integer
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+
+  /notifications/{id}/read:
+    put:
+      summary: Bildirimi Okundu İşaretle
+      description: Belirli bir bildirimi okundu olarak işaretler
+      tags: [Notifications]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Bildirim işaretlendi
+
+  /notifications/mark-all-read:
+    put:
+      summary: Tüm Bildirimleri Okundu İşaretle
+      description: Tüm bildirimleri okundu olarak işaretler
+      tags: [Notifications]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Tüm bildirimler işaretlendi
+
+  # =============================================================================
+  # PROJECTS
+  # =============================================================================
+  /projects:
+    get:
+      summary: Projelerimi Listele
+      description: Kullanıcının erişebildiği projeleri listeler
+      tags: [Projects]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, archived, deleted]
+      responses:
+        '200':
+          description: Proje listesi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  projects:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Project'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+
+    post:
+      summary: Yeni Proje Oluştur
+      description: Yeni bir proje oluşturur
+      tags: [Projects]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title]
+              properties:
+                title:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+                orgId:
+                  type: string
+                  format: uuid
+                meta:
+                  type: object
+      responses:
+        '201':
+          description: Proje oluşturuldu
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+
+  /projects/{id}:
+    get:
+      summary: Proje Detay
+      description: Proje detaylarını getirir
+      tags: [Projects]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Proje detayı
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectDetail'
+
+    put:
+      summary: Proje Güncelle
+      description: Proje bilgilerini günceller
+      tags: [Projects]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                status:
+                  type: string
+                  enum: [active, archived, deleted]
+      responses:
+        '200':
+          description: Proje güncellendi
+
+    delete:
+      summary: Proje Sil
+      description: Projeyi siler (soft delete)
+      tags: [Projects]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Proje silindi
+
+  /projects/{id}/members:
+    get:
+      summary: Proje Üyeleri
+      description: Projenin üyelerini listeler
+      tags: [Projects]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Üye listesi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  members:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        userId:
+                          type: string
+                          format: uuid
+                        role:
+                          type: string
+                        joinedAt:
+                          type: string
+                          format: date-time
+
+    post:
+      summary: Proje Üyesi Ekle
+      description: Projeye yeni üye ekler
+      tags: [Projects]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId]
+              properties:
+                userId:
+                  type: string
+                  format: uuid
+                role:
+                  type: string
+                  default: editor
+      responses:
+        '201':
+          description: Üye eklendi
+
+  /projects/{id}/members/{userId}:
+    delete:
+      summary: Proje Üyesi Çıkar
+      description: Üyeyi projeden çıkarır
+      tags: [Projects]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Üye çıkarıldı
+
+  # =============================================================================
+  # ORGANIZATIONS
+  # =============================================================================
+  /organizations:
+    get:
+      summary: Organizasyonlarım
+      description: Kullanıcının üyesi olduğu organizasyonları listeler
+      tags: [Organizations]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Organizasyon listesi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  organizations:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Organization'
+
+    post:
+      summary: Yeni Organizasyon Oluştur
+      description: Yeni bir organizasyon oluşturur
+      tags: [Organizations]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, slug]
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                slug:
+                  type: string
+                  pattern: '^[a-z0-9-]+
+      responses:
+        '201':
+          description: Organizasyon oluşturuldu
+
+  /organizations/{id}:
+    get:
+      summary: Organizasyon Detay
+      description: Organizasyon detaylarını getirir
+      tags: [Organizations]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Organizasyon detayı
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Organization'
+
+    delete:
+      summary: Organizasyon Sil
+      description: Organizasyonu siler
+      tags: [Organizations]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Organizasyon silindi
+
+  # =============================================================================
+  # RETURNS
+  # =============================================================================
+  /returns:
+    get:
+      summary: İade Taleplerim
+      description: Kullanıcının iade taleplerini listeler
+      tags: [Returns]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: İade listesi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  returns:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ReturnRequest'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+
+    post:
+      summary: İade Talebi Oluştur
+      description: |
+        Sipariş için iade talebi oluşturur.
+        
+        **Koşullar:**
+        - Sipariş teslim edilmiş olmalı
+        - 14 gün içinde talep edilmeli
+      tags: [Returns]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [orderId, reason]
+              properties:
+                orderId:
+                  type: string
+                  format: uuid
+                reason:
+                  type: string
+                  minLength: 10
+                  maxLength: 500
+                note:
+                  type: string
+                  maxLength: 1000
+      responses:
+        '201':
+          description: İade talebi oluşturuldu
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReturnRequest'
+
+  /returns/{id}/status:
+    put:
+      summary: İade Durumu Güncelle (Admin)
+      description: |
+        **ADMIN ONLY**
+        
+        İade talebinin durumunu günceller.
+      tags: [Returns]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [requested, approved, rejected, received, refunded, canceled]
+                note:
+                  type: string
+      responses:
+        '200':
+          description: Durum güncellendi
+
+  # =============================================================================
+  # ASSETS
+  # =============================================================================
+  /assets:
+    get:
+      summary: Varlıklarım
+      description: |
+        Kullanıcının yüklediği dosyaları listeler.
+        
+        **Filtreleme:**
+        - kind (cover, profile, etc.)
+        - mimeType
+      tags: [Assets]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - name: kind
+          in: query
+          schema:
+            type: string
+        - name: mimeType
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Asset listesi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  assets:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Asset'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+
+  /assets/{id}:
+    get:
+      summary: Asset Detay
+      description: Belirli bir asset'in detaylarını getirir
+      tags: [Assets]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Asset detayı
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Asset'
+
+    delete:
+      summary: Asset Sil
+      description: Asset'i siler (dosya ve kayıt)
+      tags: [Assets]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Asset silindi
+
+  /assets/stats:
+    get:
+      summary: Storage İstatistikleri
+      description: Kullanıcının storage kullanım istatistiklerini getirir
+      tags: [Assets]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: İstatistikler
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  totalSize:
+                    type: integer
+                    description: Byte cinsinden
+                  totalFiles:
+                    type: integer
+                  quota:
+                    type: integer
+                    description: Byte cinsinden quota
+                  usagePercent:
+                    type: number
+
+  # =============================================================================
+  # LOCATIONS (Turkish Address Hierarchy)
+  # =============================================================================
+  /locations/provinces:
+    get:
+      summary: İl Listesi
+      description: |
+        Türkiye illerini listeler.
+        
+        **Public endpoint**
+      tags: [Locations]
+      responses:
+        '200':
+          description: İl listesi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  provinces:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Province'
+
+  /locations/towns:
+    get:
+      summary: İlçe Listesi
+      description: Belirtilen ile ait ilçeleri listeler
+      tags: [Locations]
+      parameters:
+        - name: provinceId
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: İlçe listesi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  towns:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Town'
+
+  /locations/districts:
+    get:
+      summary: Semt/Bucak Listesi
+      description: Belirtilen ilçeye ait semt/bucakları listeler
+      tags: [Locations]
+      parameters:
+        - name: townId
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Semt listesi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  districts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/District'
+
+  /locations/quarters:
+    get:
+      summary: Mahalle Listesi
+      description: Belirtilen semte ait mahalleleri listeler
+      tags: [Locations]
+      parameters:
+        - name: districtId
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Mahalle listesi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  quarters:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Quarter'
+
+  # =============================================================================
+  # CONTACT
+  # =============================================================================
+  /contact:
+    post:
+      summary: İletişim Formu Gönder
+      description: |
+        İletişim formu gönderir.
+        
+        **Rate Limit:** 3 mesaj/saat
+      tags: [Contact]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, subject, message]
+              properties:
+                name:
+                  type: string
+                  minLength: 2
+                  maxLength: 100
+                email:
+                  type: string
+                  format: email
+                subject:
+                  type: string
+                  minLength: 5
+                  maxLength: 200
+                message:
+                  type: string
+                  minLength: 10
+                  maxLength: 2000
+      responses:
+        '200':
+          description: Mesaj gönderildi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Mesajınız başarıyla gönderildi
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+# =============================================================================
+# COMPONENTS
+# =============================================================================
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Access token authentication. 
+        
+        **Usage:** `Authorization: Bearer {token}`
+        
+        Token expire olduğunda `/auth/refresh` endpoint'ini kullanın.
+        
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: access
+      description: |
+        Cookie-based authentication.
+        
+        Browser'da otomatik olarak gönderilir.
+
+  parameters:
+    PageParam:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+      description: Sayfa numarası
+      
+    LimitParam:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+      description: Sayfa başına kayıt sayısı
+      
+    DraftIdParam:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Draft UUID'si
+      
+    OrderIdParam:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Order UUID'si
+
+  responses:
+    Unauthorized:
+      description: Authentication gerekli veya token geçersiz
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            message: Unauthorized
+            code: UNAUTHORIZED
+            
+    Forbidden:
+      description: Yetki yetersiz
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            message: Bu işlem için yetkiniz yok
+            code: FORBIDDEN
+            
+    NotFound:
+      description: Kayıt bulunamadı
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            message: Kayıt bulunamadı
+            code: NOT_FOUND
+            
+    BadRequest:
+      description: Validation hatası veya geçersiz parametre
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ValidationError'
+          example:
+            message: Validation failed
+            code: VALIDATION_ERROR
+            errors:
+              - field: email
+                message: Geçerli bir email adresi giriniz
+              - field: password
+                message: Şifre en az 8 karakter olmalıdır
+                
+    TooManyRequests:
+      description: Rate limit aşıldı
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            message: Çok fazla istek gönderdiniz
+            code: RATE_LIMIT_EXCEEDED
+            retryAfter: 60
+            
+    PaymentRequired:
+      description: Yetersiz kredi/bakiye
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            message: Yetersiz kredi
+            code: INSUFFICIENT_CREDITS
+            required: 50
+            current: 20
+
+  schemas:
+    # =============================================================================
+    # AUTH SCHEMAS
+    # =============================================================================
+    RegisterRequest:
+      type: object
+      required:
+        - email
+        - password
+        - confirmPassword
+        - acceptTerms
+        - acceptPrivacy
+      properties:
+        email:
+          type: string
+          format: email
+          example: john@example.com
+        password:
+          type: string
+          minLength: 8
+          example: SecureP@ss123
+          description: En az 8 karakter, 1 büyük harf, 1 küçük harf, 1 rakam, 1 özel karakter
+        confirmPassword:
+          type: string
+          example: SecureP@ss123
+        name:
+          type: string
+          minLength: 2
+          maxLength: 100
+          example: John Doe
+        role:
+          type: string
+          enum: [user, designer]
+          default: user
+        acceptTerms:
+          type: boolean
+          description: Kullanım şartlarını kabul edilmeli
+        acceptPrivacy:
+          type: boolean
+          description: Gizlilik politikasını kabul edilmeli
+        acceptRevenueShare:
+          type: boolean
+          description: Designer rolü için gelir paylaşımı kabul edilmeli
+          
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+        remember:
+          type: boolean
+          default: false
+          description: True ise cookie'ler persistent olur
+          
+    LoginResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+          example: true
+        accessToken:
+          type: string
+          description: 15 dakika geçerli
+        refreshToken:
+          type: string
+          description: 30 gün geçerli
+          
+    # =============================================================================
+    # USER SCHEMAS
+    # =============================================================================
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+          nullable: true
+        avatarUrl:
+          type: string
+          nullable: true
+        role:
+          type: string
+          enum: [user, designer, admin]
+        emailVerified:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+          
+    UserProfile:
+      allOf:
+        - $ref: '#/components/schemas/User'
+        - type: object
+          properties:
+            profile:
+              type: object
+              nullable: true
+              properties:
+                phone:
+                  type: string
+                  nullable: true
+                company:
+                  type: string
+                  nullable: true
+                bio:
+                  type: string
+                  nullable: true
+                  
+    UpdateProfileRequest:
+      type: object
+      properties:
+        phone:
+          type: string
+          maxLength: 30
+          nullable: true
+        company:
+          type: string
+          maxLength: 100
+          nullable: true
+        address1:
+          type: string
+          maxLength: 200
+          nullable: true
+        address2:
+          type: string
+          maxLength: 200
+          nullable: true
+        city:
+          type: string
+          maxLength: 100
+          nullable: true
+        state:
+          type: string
+          maxLength: 100
+          nullable: true
+        postalCode:
+          type: string
+          maxLength: 30
+          nullable: true
+        country:
+          type: string
+          maxLength: 2
+          nullable: true
+        preferences:
+          type: object
+          additionalProperties: true
+          nullable: true
+          
+    # =============================================================================
+    # DRAFT SCHEMAS
+    # =============================================================================
+    Draft:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        method:
+          type: string
+          enum: [upload, ai, artist]
+        step:
+          type: integer
+          minimum: 1
+          maximum: 5
+        workflowStatus:
+          type: string
+          enum: [PENDING, APPROVED, IN_PROGRESS, PREVIEW_SENT, REVISION, COMPLETED, CANCELED]
+        messageCardId:
+          type: string
+          format: uuid
+          nullable: true
+        assignedDesignerId:
+          type: string
+          format: uuid
+          nullable: true
+        revisionCount:
+          type: integer
+        maxRevisions:
+          type: integer
+          default: 3
+        committedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+          
+    # =============================================================================
+    # NOTIFICATION SCHEMAS
+    # =============================================================================
+    Notification:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum: [order_update, message, payment, shipment, system]
+        title:
+          type: string
+        body:
+          type: string
+        payload:
+          type: object
+          additionalProperties: true
+          nullable: true
+        read:
+          type: boolean
+          default: false
+        createdAt:
+          type: string
+          format: date-time
+          
+    # =============================================================================
+    # PROJECT SCHEMAS
+    # =============================================================================
+    Project:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        ownerId:
+          type: string
+          format: uuid
+        orgId:
+          type: string
+          format: uuid
+          nullable: true
+        status:
+          type: string
+          enum: [active, archived, deleted]
+          default: active
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+          
+    ProjectDetail:
+      allOf:
+        - $ref: '#/components/schemas/Project'
+        - type: object
+          properties:
+            owner:
+              $ref: '#/components/schemas/User'
+            members:
+              type: array
+              items:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+                  role:
+                    type: string
+            meta:
+              type: object
+              nullable: true
+              
+    # =============================================================================
+    # ORGANIZATION SCHEMAS
+    # =============================================================================
+    Organization:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        slug:
+          type: string
+        ownerId:
+          type: string
+          format: uuid
+        memberCount:
+          type: integer
+        projectCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+          
+    # =============================================================================
+    # RETURN REQUEST SCHEMAS
+    # =============================================================================
+    ReturnRequest:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        orderId:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        reason:
+          type: string
+        status:
+          type: string
+          enum: [requested, approved, rejected, received, refunded, canceled]
+        note:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+          
+    # =============================================================================
+    # ASSET SCHEMAS
+    # =============================================================================
+    Asset:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        kind:
+          type: string
+          example: cover
+        filename:
+          type: string
+        mimeType:
+          type: string
+          example: image/png
+        sizeBytes:
+          type: integer
+        url:
+          type: string
+        publicUrl:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+          
+    # =============================================================================
+    # LOCATION SCHEMAS (Turkish Address)
+    # =============================================================================
+    Province:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+          example: İstanbul
+        alpha2Code:
+          type: string
+          example: '34'
+          
+    Town:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+          example: Kadıköy
+        provinceId:
+          type: integer
+          
+    District:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+          example: Moda
+        townId:
+          type: integer
+          
+    Quarter:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+          example: Caferağa Mahallesi
+        districtId:
+          type: integer
+        postalCode:
+          type: string
+          nullable: true
+          
+    # =============================================================================
+    # PAGINATION SCHEMA
+    # =============================================================================
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+          example: 1
+        limit:
+          type: integer
+          example: 20
+        total:
+          type: integer
+          example: 156
+        totalPages:
+          type: integer
+          example: 8
+        hasNext:
+          type: boolean
+          example: true
+        hasPrev:
+          type: boolean
+          example: false
+          
+    # =============================================================================
+    # ERROR SCHEMAS
+    # =============================================================================
+    Error:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+          description: Hata mesajı
+          example: Bir hata oluştu
+        code:
+          type: string
+          description: Hata kodu
+          example: INTERNAL_ERROR
+        statusCode:
+          type: integer
+          description: HTTP status code
+          example: 500
+        timestamp:
+          type: string
+          format: date-time
+        path:
+          type: string
+          description: İstek path'i
+          example: /api/v1/orders/123
+          
+    ValidationError:
+      allOf:
+        - $ref: '#/components/schemas/Error'
+        - type: object
+          properties:
+            errors:
+              type: array
+              items:
+                type: object
+                properties:
+                  field:
+                    type: string
+                    example: email
+                  message:
+                    type: string
+                    example: Geçerli bir email adresi giriniz
+                  value:
+                    description: Gönderilen geçersiz değer
+                    
+# =============================================================================
+# SECURITY
+# =============================================================================
+security:
+  - bearerAuth: []
+  - cookieAuth: []
+
+# =============================================================================
+# EXTERNAL DOCUMENTATION
+# =============================================================================
+externalDocs:
+  description: |
+    📚 Kapsamlı API Dokümantasyonu
+    
+    Daha fazla bilgi, örnek kod ve best practices için:
+  url: https://docs.polikrami.com
+
+# =============================================================================
+# ADDITIONAL INFO
+# =============================================================================
+x-tagGroups:
+  - name: Authentication & Users
+    tags:
+      - Authentication
+      - Users
+  - name: Core Features
+    tags:
+      - Drafts
+      - Orders
+      - Payments
+      - Designers
+  - name: Content & Media
+    tags:
+      - Templates
+      - Categories
+      - Message Cards
+      - Assets
+  - name: E-Commerce
+    tags:
+      - Addresses
+      - Wallet
+      - Shipments
+      - Returns
+  - name: Collaboration
+    tags:
+      - Projects
+      - Organizations
+      - Comments
+  - name: Discovery
+    tags:
+      - Search
+      - Likes
+      - AI
+  - name: System
+    tags:
+      - Notifications
+      - Locations
+      - Contact
+          format: date-time
+          
+    DraftDetail:
+      allOf:
+        - $ref: '#/components/schemas/Draft'
+        - type: object
+          properties:
+            data:
+              type: object
+              nullable: true
+            shipping:
+              type: object
+              nullable: true
+            assignedDesigner:
+              $ref: '#/components/schemas/Designer'
+              nullable: true
+            messageCard:
+              $ref: '#/components/schemas/MessageCard'
+              nullable: true
+              
+    # =============================================================================
+    # ORDER SCHEMAS
+    # =============================================================================
+    Order:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [pending, paid, processing, shipped, delivered, canceled, refunded]
+        totalCents:
+          type: integer
+          description: Kuruş cinsinden toplam tutar
+        currency:
+          type: string
+          example: TRY
+        createdAt:
+          type: string
+          format: date-time
+        paidAt:
+          type: string
+          format: date-time
+          nullable: true
+          
+    OrderDetail:
+      allOf:
+        - $ref: '#/components/schemas/Order'
+        - type: object
+          properties:
+            lineItems:
+              type: array
+              items:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  description:
+                    type: string
+                  quantity:
+                    type: integer
+                  priceCents:
+                    type: integer
+            shippingAddress:
+              $ref: '#/components/schemas/Address'
+            payment:
+              type: object
+              nullable: true
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                method:
+                  type: string
+                status:
+                  type: string
+            shipment:
+              $ref: '#/components/schemas/Shipment'
+              nullable: true
+              
+    # =============================================================================
+    # ADDRESS SCHEMAS
+    # =============================================================================
+    Address:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        label:
+          type: string
+          nullable: true
+          example: Ev
+        fullName:
+          type: string
+          example: John Doe
+        phone:
+          type: string
+          example: '+905551234567'
+        line1:
+          type: string
+          example: Atatürk Mah. İstiklal Cad. No:123
+        line2:
+          type: string
+          nullable: true
+          example: Daire 4
+        city:
+          type: string
+          example: İstanbul
+        district:
+          type: string
+          nullable: true
+          example: Kadıköy
+        postalCode:
+          type: string
+          nullable: true
+          example: '34700'
+        country:
+          type: string
+          example: TR
+          default: TR
+        isDefault:
+          type: boolean
+          default: false
+        createdAt:
+          type: string
+          format: date-time
+          
+    AddressInput:
+      type: object
+      required:
+        - fullName
+        - phone
+        - line1
+        - city
+      properties:
+        label:
+          type: string
+          maxLength: 50
+          nullable: true
+        fullName:
+          type: string
+          minLength: 2
+          maxLength: 100
+        phone:
+          type: string
+          pattern: '^\+?[0-9]{10,15}
+        line1:
+          type: string
+          minLength: 5
+          maxLength: 200
+        line2:
+          type: string
+          maxLength: 200
+          nullable: true
+        city:
+          type: string
+          minLength: 2
+          maxLength: 100
+        district:
+          type: string
+          maxLength: 100
+          nullable: true
+        postalCode:
+          type: string
+          pattern: '^\d{5}
+          nullable: true
+        country:
+          type: string
+          length: 2
+          default: TR
+        isDefault:
+          type: boolean
+          default: false
+          
+    # =============================================================================
+    # DESIGNER SCHEMAS
+    # =============================================================================
+    Designer:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        avatarUrl:
+          type: string
+          nullable: true
+        bio:
+          type: string
+          nullable: true
+        skills:
+          type: array
+          items:
+            type: string
+        stats:
+          type: object
+          properties:
+            averageRating:
+              type: number
+            totalReviews:
+              type: integer
+            completedOrders:
+              type: integer
+              
+    Review:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        designerId:
+          type: string
+          format: uuid
+        reviewerId:
+          type: string
+          format: uuid
+        reviewerName:
+          type: string
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        comment:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+          
+    # =============================================================================
+    # SHIPMENT SCHEMAS
+    # =============================================================================
+    Shipment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        orderId:
+          type: string
+          format: uuid
+        carrierCode:
+          type: string
+        carrierName:
+          type: string
+        trackingNumber:
+          type: string
+        status:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        lastSyncedAt:
+          type: string
+          format: date-time
+          nullable: true
+          
+    ShipmentEvents:
+      type: object
+      properties:
+        shipmentId:
+          type: string
+          format: uuid
+        trackingNumber:
+          type: string
+        status:
+          type: string
+        events:
+          type: array
+          items:
+            type: object
+            properties:
+              status:
+                type: string
+              location:
+                type: string
+                nullable: true
+              description:
+                type: string
+              timestamp:
+                type: string
+                format: date-time
+                
+    # =============================================================================
+    # TEMPLATE & CATEGORY SCHEMAS
+    # =============================================================================
+    Template:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        slug:
+          type: string
+        description:
+          type: string
+          nullable: true
+        thumbnailUrl:
+          type: string
+          nullable: true
+        categoryId:
+          type: integer
+          nullable: true
+        isPublished:
+          type: boolean
+        usageCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+          
+    TemplateDetail:
+      allOf:
+        - $ref: '#/components/schemas/Template'
+        - type: object
+          properties:
+            category:
+              $ref: '#/components/schemas/Category'
+              nullable: true
+            tags:
+              type: array
+              items:
+                type: string
+                
+    Category:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        slug:
+          type: string
+        description:
+          type: string
+          nullable: true
+        templateCount:
+          type: integer
+          
+    # =============================================================================
+    # MESSAGE CARD SCHEMAS
+    # =============================================================================
+    MessageCard:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        thumbnailUrl:
+          type: string
+          nullable: true
+        priceCents:
+          type: integer
+        isPublished:
+          type: boolean
+        likes:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+          
+    # =============================================================================
+    # COMMENT SCHEMAS
+    # =============================================================================
+    Comment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        projectId:
+          type: string
+          format: uuid
+        layerId:
+          type: string
+          format: uuid
+          nullable: true
+        authorId:
+          type: string
+          format: uuid
+        authorName:
+          type: string
+        authorAvatar:
+          type: string
+          nullable: true
+        body:
+          type: string
+        status:
+          type: string
+          enum: [open, resolved]
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string

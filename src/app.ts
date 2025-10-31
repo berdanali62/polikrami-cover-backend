@@ -29,6 +29,7 @@ import addressesRoutes from './modules/addresses/routes';
 import returnsRoutes from './modules/returns/routes';
 import aiRoutes from './modules/ai/routes';
 import shipmentRoutes from './modules/shipments/routes';
+import locationRoutes from './modules/locations/routes';
 // Lazy-load swagger only if installed
 let swaggerUi: any = null;
 let yaml: any = null;
@@ -166,6 +167,7 @@ v1.use('/addresses', addressesRoutes);
 v1.use('/returns', returnsRoutes);
 v1.use('/ai', aiRoutes);
 v1.use('/shipments', shipmentRoutes);
+v1.use('/locations', locationRoutes);
 
 app.use('/api/v1', v1);
 // Legacy (to be removed after FE cutover)
